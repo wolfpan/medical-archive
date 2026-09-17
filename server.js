@@ -597,7 +597,7 @@ function sanitizeAiFields(f) {
 /* 多页报告：分批识别提示词（输出纯文本中间结果） */
 const AI_PAGES_PROMPT = `你是一名严谨的医疗档案录入助手。用户提供了一份医疗资料（体检报告/住院病历/检查报告/报告截图等）的全部或部分页面图片。
 请逐页（或就单张图片）提取关键内容，输出清晰的纯文本（不要输出 JSON）：
-- 患者信息（姓名、性别、年龄、体检号/门诊号等，仅在本批页面出现时记录）
+- 患者信息（【必查项】姓名、性别、年龄、体检号/门诊号等）：仔细查看每页的页眉、页脚、标题栏、报告头和信息表格——患者姓名几乎总在其中；姓名可能被脱敏为"张*三"形式，请原样转录，不要猜测补全，也不要省略
 - 每页的科室/项目名称与主要结果：保留数值、单位、参考范围
 - 明确标注异常项（↑/↓/超标/阳性等提示），不要遗漏任何异常
 - 各页的结论与医生建议（如有医生书面意见请完整保留原文）
@@ -612,7 +612,7 @@ const AI_CONSOLIDATE_PROMPT = `你是一名严谨的家庭医疗档案录入助�
 - 【多患者拆分】如果资料涉及**多位患者**（识别文本中的姓名明显不同），必须输出一个 JSON **数组**，每位患者一条记录（字段同下），并每条额外包含 source_files 字段（字符串数组，列出属于该患者的来源文件名，必须与【文件：…】标注中的文件名完全一致）。只有一位患者时输出单个 JSON 对象，不需要 source_files。
 - findings 输出整理后的核心内容：个人信息 + 各资料结果要点 + 异常项汇总 + 医生意见，分节分点保证可读性，不要逐字堆砌。
 - 只输出一个 JSON 对象（或多人时的 JSON 数组），不要输出任何解释、前后缀或代码块标记。字段定义：
-- member_name: 患者姓名（脱敏如"张*三"或疑似错字时原样输出，由系统负责匹配档案）
+- member_name: 患者姓名（脱敏如"张*三"或疑似错字时原样输出，由系统负责匹配档案；各段开头的【文件：…】文件名中也可能含姓名线索）
 - category: 必须恰好是以下之一："就诊记录","检查报告","诊断分析","用药记录","手术记录","疫苗接种","体检报告","其他"（多资料合并时按主要内容选，整册体检选"体检报告"）
 - title: 简明标题，建议"机构+项目"，多资料合并时概括为主要检查（必填）
 - exam_item: 报告/检查项目简称（如"乳腺超声检查""钼靶X检查""年度体检"），用于文件命名（必填）
@@ -637,11 +637,14 @@ async function handleAiAnalyze(req, res, u) {
   original = path.basename(String(original).replace(/[\\/]+/g, '_')).trim().slice(0, 200) || '未命名文件';
   let mime = String(req.headers['content-type'] || '').split(';')[0].trim();
   if (!/^[\w.+-]+\/[\w.+-]+$/.test(mime)) mime = mimeFromExt(path.extname(original));
+  const srcNameHint = original !== '未命名文件'
+    ? `\n资料文件名：${original}（文件名中可能包含患者姓名、日期、检查项目等线索，可与资料内容交叉参考；与资料内容冲突时以资料为准）`
+    : '';
   let parts;
   if (/^image\//.test(mime)) {
-    const prompt = textMode
+    const prompt = (textMode
       ? AI_PAGES_PROMPT + '\n本次仅这一份资料（单张图片）。'
-      : AI_PROMPT;
+      : AI_PROMPT) + srcNameHint;
     parts = [
       { type: 'text', text: prompt },
       { type: 'image_url', image_url: { url: 'data:' + mime + ';base64,' + buf.toString('base64') } },
@@ -649,9 +652,9 @@ async function handleAiAnalyze(req, res, u) {
   } else if (mime === 'application/pdf' || /\.pdf$/i.test(original)) {
     const text = extractPdfText(buf);
     if (text.length < 10) throw httpError(422, 'PDF 中未能提取到文字（可能是扫描件或特殊编码）。请把报告页面截图为图片后再用 AI 导入。');
-    parts = [{ type: 'text', text: (textMode ? AI_PAGES_PROMPT : AI_PROMPT) + '\n\n--- 以下是 PDF 提取文本 ---\n' + text.slice(0, 20000) }];
+    parts = [{ type: 'text', text: (textMode ? AI_PAGES_PROMPT : AI_PROMPT) + srcNameHint + '\n\n--- 以下是 PDF 提取文本 ---\n' + text.slice(0, 20000) }];
   } else if (/^text\//.test(mime) || /^(application\/(json|xml))/.test(mime) || /\.(txt|md|csv|json|log|html?)$/i.test(original)) {
-    parts = [{ type: 'text', text: (textMode ? AI_PAGES_PROMPT : AI_PROMPT) + '\n\n--- 以下是文件文本 ---\n' + buf.toString('utf8').slice(0, 20000) }];
+    parts = [{ type: 'text', text: (textMode ? AI_PAGES_PROMPT : AI_PROMPT) + srcNameHint + '\n\n--- 以下是文件文本 ---\n' + buf.toString('utf8').slice(0, 20000) }];
   } else {
     throw httpError(415, '暂不支持该文件类型的 AI 识别（支持：图片 / PDF / 文本文件）。视频等资料请用「添加资料 → 手工录入」上传。');
   }
@@ -850,7 +853,11 @@ async function handleApi(req, res, u) {
       if (!pages.length) throw httpError(400, '缺少页面数据');
       const start = Number(b.start) || 1;
       const total = Number(b.total) || pages.length;
-      const prompt = AI_PAGES_PROMPT + `\n本批为第 ${start} 至 ${start + pages.length - 1} 页（全册共 ${total} 页）。`;
+      const srcName = cleanStr(b.name, 200);
+      const nameHint = srcName
+        ? `\n来源文件名：${srcName}（文件名中可能包含患者姓名、日期、检查项目等线索，可与页面内容交叉参考；与页面内容冲突时以页面为准）`
+        : '';
+      const prompt = AI_PAGES_PROMPT + nameHint + `\n本批为第 ${start} 至 ${start + pages.length - 1} 页（全册共 ${total} 页）。`;
       const parts = [{ type: 'text', text: prompt }]
         .concat(pages.map((p) => ({ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + p } })));
       const out = await aiChat([{ role: 'user', content: parts }]);

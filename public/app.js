@@ -441,7 +441,7 @@ async function addManualSubmit(form) {
 }
 
 const PDF_MAX_PAGES = 40;   // 整份阅读的页数上限
-const AI_PAGE_BATCH = 6;    // 每次识别请求携带的页数
+const AI_PAGE_BATCH = 4;    // 每次识别请求携带的页数（页数越少单页越清晰，宁可多批）
 
 /* 用浏览器内的 pdf.js 把 PDF 整份渲染为 JPEG 页面（扫描件/特殊编码均可用） */
 async function pdfToPageJpegs(file) {
@@ -454,13 +454,13 @@ async function pdfToPageJpegs(file) {
   const images = [];
   for (let p = 1; p <= pages; p++) {
     const page = await doc.getPage(p);
-    let vp = page.getViewport({ scale: 2 });
+    let vp = page.getViewport({ scale: 2.5 });
     const maxSide = Math.max(vp.width, vp.height);
-    if (maxSide > 1600) vp = page.getViewport({ scale: 1600 / maxSide });
+    if (maxSide > 2200) vp = page.getViewport({ scale: 2200 / maxSide });
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(vp.width); canvas.height = Math.round(vp.height);
     await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.82));
+    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.9));
     images.push(blob);
   }
   return { images, total: doc.numPages };
