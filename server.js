@@ -459,7 +459,8 @@ const AI_PROMPT = `你是一名严谨的家庭医疗档案录入助手。用户�
 - treatment: 处理意见、用药、手术或随访建议
 - notes: 报告主要所见 / 对话要点等补充信息（简洁分点）
 - next_visit_date: 明确提到的复诊/复查日期，格式 YYYY-MM-DD，否则留空
-如果内容是乱码、空白、或与医疗健康完全无关，输出 {"error":"原因简述"}，并省略其他字段。`;
+如果内容是乱码、空白、或与医疗健康完全无关，输出 {"error":"原因简述"}，并省略其他字段。
+【字段分工，禁止重复】各字段不得互相复述同一内容：findings 只放描述性内容（所见、数值、异常项明细）；diagnosis 只写结论性判断（1-3 句，如分级、疾病名），禁止重复 findings 中的描述；treatment 只写行动建议（用药/复查/就诊科室），不复述诊断；notes 只写其他补充，无内容留空。同一句话不得出现在多个字段。`;
 
 function aiConfig() {
   return { base: (getSetting('ai_base') || '').trim(), model: (getSetting('ai_model') || '').trim(), key: getSetting('ai_key') || '' };
@@ -623,7 +624,8 @@ const AI_CONSOLIDATE_PROMPT = `你是一名严谨的家庭医疗档案录入助�
 - diagnosis: 诊断结论（优先医生原意见）
 - treatment: 处理与随访建议（优先医生原意见）
 - notes: 补充说明（资料构成、未检项目等）
-- next_visit_date: 明确的复查/复诊日期，格式 YYYY-MM-DD，否则留空`;
+- next_visit_date: 明确的复查/复诊日期，格式 YYYY-MM-DD，否则留空
+【字段分工，禁止重复】各字段不得互相复述同一内容：findings 只放描述性汇总（各资料结果要点、异常项明细）；diagnosis 只写结论性判断（1-3 句，如"尿酸升高；轻度脂肪肝"），禁止重复 findings 中的描述；treatment 只写行动建议（复查项目与时间、就诊科室），不复述诊断；notes 只写补充说明（资料构成、未检项等），无内容留空。同一句话不得出现在多个字段。`;
 
 async function handleAiAnalyze(req, res, u) {
   const cfg = aiConfig();

@@ -491,7 +491,7 @@ async function aiAnalyzeAll() {
   for (const file of files) {
     const row = makeProgressRow(file.name, statusUl);
     try {
-      let text = '', pageTotal = 0, fields, model;
+      let text = '', pageTotal = 0;
       if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
         row.set(8, '整份阅读中（渲染页面）…');
         row.status('<span class="spin"></span>处理中');
@@ -515,16 +515,25 @@ async function aiAnalyzeAll() {
           done++;
         }
         row.set(85, '汇总提取关键信息…');
-        const res2 = await fetch('/api/ai/consolidate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ texts, name: file.name }),
-        });
-        const data2 = await res2.json().catch(() => ({}));
-        if (!res2.ok) throw new Error(data2.error || '汇总失败 ' + res2.status);
-        fields = data2.fields;
-        model = data2.model;
-        pageTotal = total;
+        if (multi) {
+          /* 多文件：PDF 识别文本并入公共汇总，由统一的 consolidate 合并全部资料 */
+          text = texts.join('\n\n');
+          pageTotal = total;
+        } else {
+          /* 单文件：此处直接汇总并生成草稿卡，不进入公共汇总 */
+          const res2 = await fetch('/api/ai/consolidate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ texts, name: file.name }),
+          });
+          const data2 = await res2.json().catch(() => ({}));
+          if (!res2.ok) throw new Error(data2.error || '汇总失败 ' + res2.status);
+          const idx = S.aiQueue.length;
+          S.aiQueue.push({ files: [file], fields: data2.fields, model: data2.model, presetMemberId, done: false, pageTotal: total });
+          row.done('识别完成，请核对下方草稿');
+          appendAiCard(idx);
+          continue;
+        }
       } else if (multi) {
         row.set(30, 'AI 提取资料内容中…');
         row.status('<span class="spin"></span>处理中');
