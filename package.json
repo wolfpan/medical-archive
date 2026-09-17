@@ -1,0 +1,15 @@
+{
+  "name": "family-medical-archive",
+  "version": "1.0.0",
+  "description": "家庭医学存档：病历、影像、就诊记录、诊断分析的私有存档网站（零依赖 Node.js + SQLite）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node seed.js",
+    "reset-password": "node reset-password.js"
+  },
+  "engines": {
+    "node": ">=23.4.0"
+  },
+  "license": "MIT"
+}
