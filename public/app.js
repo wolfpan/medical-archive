@@ -5,7 +5,7 @@ const $modal = document.getElementById('modal-root');
 const $toast = document.getElementById('toast-root');
 
 const CATEGORIES = ['就诊记录', '检查报告', '诊断分析', '用药记录', '手术记录', '疫苗接种', '体检报告', '其他'];
-const S = { authed: false, needSetup: false, members: [], previewList: [], previewIdx: 0, confirmCb: null, q: '', aiQueue: [], needRouteRefresh: false };
+const S = { authed: false, needSetup: false, memberGate: false, members: [], previewList: [], previewIdx: 0, confirmCb: null, q: '', aiQueue: [], needRouteRefresh: false };
 
 /* ---------- 工具 ---------- */
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -868,6 +868,7 @@ async function viewSettings() {
         · 全部数据保存在服务器 <b>data/</b> 目录（SQLite 数据库 + uploads 附件），定期停止服务后复制该目录即可完成备份。<br>
         · 恢复备份：将备份的 data/ 目录覆盖回来，重启服务即可。<br>
         · 请牢记管理密码；若遗忘，在服务器上运行 <b>node reset-password.js</b> 可重置（之后首次打开网页重新设置密码）。<br>
+        · 登录为双重验证：除管理密码外还需输入任一档案成员的完整姓名（存在成员时自动启用；成员全部删除后该校验失效）。<br>
         · 本系统为单用户密码登录，适合家庭私用。若部署在公网，务必通过 HTTPS（nginx 反向代理 + 证书）访问。
       </p>
     </div>
@@ -880,8 +881,11 @@ function renderLogin() {
   <div class="auth-wrap"><form class="card auth-card" id="login-form">
     <div class="auth-logo">+</div>
     <h1>家庭医学存档</h1>
-    <p class="muted">单用户密码登录</p>
+    <p class="muted">${S.memberGate ? '双重验证：管理密码 + 档案成员姓名' : '单用户密码登录'}</p>
     <input type="password" name="password" placeholder="请输入管理密码" required autofocus>
+    ${S.memberGate
+      ? '<input name="member_name" placeholder="请输入任一档案成员的完整姓名" required maxlength="50" style="margin-top:10px">'
+      : '<p class="muted small" style="margin-top:10px">暂无档案成员：添加成员后将自动启用成员姓名校验</p>'}
     <div class="auth-error" id="login-error"></div>
     <button class="btn primary block">登 录</button>
   </form></div>`;
@@ -1381,6 +1385,7 @@ async function loadMembers() {
     const st = await api('/api/status');
     S.needSetup = st.needSetup;
     S.authed = st.authed;
+    S.memberGate = !!st.memberGate;
   } catch (e) { renderError('无法连接服务器：' + e.message); return; }
   if (S.authed) await loadMembers();
   route();

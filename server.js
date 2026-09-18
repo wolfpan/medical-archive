@@ -673,7 +673,8 @@ async function handleApi(req, res, u) {
 
   // 免登录接口
   if (p === '/status' && method === 'GET') {
-    return sendJSON(res, 200, { version: APP_VERSION, needSetup: !hasPassword(), authed: isAuthed(req) });
+    const memberGate = Number(q('SELECT COUNT(*) c FROM members').get().c) > 0;
+    return sendJSON(res, 200, { version: APP_VERSION, needSetup: !hasPassword(), authed: isAuthed(req), memberGate });
   }
   if (p === '/setup' && method === 'POST') {
     if (hasPassword()) throw httpError(403, '密码已设置，如需修改请登录后在设置页操作');
@@ -688,7 +689,13 @@ async function handleApi(req, res, u) {
     if (isLocked(clientIp(req))) throw httpError(429, '尝试次数过多，请 15 分钟后再试');
     if (!hasPassword()) throw httpError(400, '尚未设置密码');
     const b = await readJson(req);
-    if (!verifyPassword(String(b.password || ''))) { recordFail(clientIp(req)); throw httpError(401, '密码错误'); }
+    // 双因子：密码 + 任一档案成员完整姓名；错误合并提示防试探；无成员时（初装）跳过姓名校验防锁死
+    const gateOn = Number(q('SELECT COUNT(*) c FROM members').get().c) > 0;
+    const nameOk = !gateOn || !!q('SELECT id FROM members WHERE name=?').get(String(b.member_name || '').trim());
+    if (!verifyPassword(String(b.password || '')) || !nameOk) {
+      recordFail(clientIp(req));
+      throw httpError(401, gateOn ? '密码或档案成员姓名不正确' : '密码错误');
+    }
     clearFails(clientIp(req));
     res.setHeader('Set-Cookie', sessionCookie(issueToken()));
     return sendJSON(res, 200, { ok: true });
