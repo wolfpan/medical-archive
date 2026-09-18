@@ -898,7 +898,7 @@ async function openRecordForm(existingId, presetMemberId) {
     r = res.record;
   }
   const mid = r?.member_id || presetMemberId || (S.members[0]?.id ?? '');
-  openModal(`<h3>编辑病历记录</h3>
+  openModal(`<h3>${r ? '编辑病历记录' : '病历记录'}</h3>
   <form id="record-form">
     <div class="form-grid">
       <label>家庭成员 *<select name="member_id" required>${S.members.map((m) => `<option value="${m.id}" ${String(mid) === String(m.id) ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select></label>
@@ -918,6 +918,8 @@ async function openRecordForm(existingId, presetMemberId) {
     <label>备注与分析<textarea name="notes" rows="3" maxlength="10000" placeholder="自己的记录、对比分析、医嘱摘要等">${esc(r?.notes || '')}</textarea></label>
     <div class="row-end"><button type="button" class="btn" data-action="close-modal">取消</button><button class="btn primary">保存</button></div>
   </form>`);
+  // 编辑模式：在表单上标记记录 id，保存时走 PUT 更新而非新建
+  if (r) { const form = document.getElementById('record-form'); if (form) form.dataset.id = r.id; }
 }
 
 /* ---------- 附件管理（关联/取消关联到病历） ---------- */
@@ -1006,10 +1008,13 @@ async function memberSubmit(form) {
 }
 async function recordSubmit(form) {
   const b = formToObject(form);
-  const r = form.dataset.id ? await api('/api/records/' + form.dataset.id, { method: 'PUT', json: b })
+  const isEdit = !!form.dataset.id;
+  const r = isEdit ? await api('/api/records/' + form.dataset.id, { method: 'PUT', json: b })
     : await api('/api/records', { method: 'POST', json: b });
-  closeModal(); toast('病历已保存');
-  location.hash = '#/record/' + r.id;
+  closeModal(); toast(isEdit ? '病历已更新' : '病历已保存');
+  const target = '#/record/' + r.id;
+  if (location.hash === target) route(); // 编辑保存在原页面时地址不变，手动刷新视图
+  else location.hash = target;
 }
 async function pwSubmit(form) {
   const b = formToObject(form);
