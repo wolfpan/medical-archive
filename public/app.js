@@ -381,6 +381,10 @@ async function viewAdd() {
       ${cfg.configured ? '' : `<p class="hint">AI 识别尚未配置，<a href="#/settings">前往设置</a> 开启后可用。</p>`}
       <p class="hint">AI 智能识别：AI 读资料、自动写病历${cfg.configured ? `（当前模型 ${esc(cfg.model)}）` : ''}<br>
       手工录入：自己填病历，或只传视频等附件</p>
+      <div class="status-head hidden" id="status-head">
+        <span class="muted small">处理进度</span>
+        <button type="button" class="link" data-action="clear-status">清空</button>
+      </div>
       <ul class="upload-list" id="ai-status"></ul>
     </div>
     <div class="card settings-sec hidden" id="manual-box">
@@ -509,6 +513,7 @@ async function aiAnalyzeAll() {
   const btn = document.querySelector('[data-action="ai-analyze"]');
   btn.disabled = true;
   const multi = files.length > 1;
+  const startCount = S.aiQueue.length; // 本轮新增草稿卡计数
 
   /* 单个文件 → 直接结构化；多个文件 → 逐一提取文本后合并为一份病历 */
   const recognized = []; // { file, text, pageTotal }
@@ -600,6 +605,7 @@ async function aiAnalyzeAll() {
     const mergingLabel = multi ? `汇总 ${recognized.length} 份资料` : '汇总识别结果';
     li.innerHTML = `<div class="u-row"><span class="clamp">${esc(mergingLabel)}</span><span class="muted"><span class="spin"></span>生成病历草稿…</span></div>`;
     statusUl.appendChild(li);
+    syncStatusHead();
     try {
       const res = await fetch('/api/ai/consolidate', {
         method: 'POST',
@@ -649,6 +655,12 @@ async function aiAnalyzeAll() {
       sp.textContent = err.message || '失败';
       sp.className = 'fail';
     }
+  }
+  const added = S.aiQueue.length - startCount;
+  if (added > 0) {
+    toast(`已生成 ${added} 份病历草稿，请核对后保存`);
+    const results = document.getElementById('ai-results');
+    if (results && results.children.length) results.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   btn.disabled = false;
 }
@@ -1072,6 +1084,7 @@ function makeProgressRow(name, list) {
   li.innerHTML = `<div class="u-row"><span class="clamp">${esc(name)}</span><span class="muted">等待中…</span></div>
     <div class="progress"><div class="progress-bar" style="width:0%"></div><div class="progress-text"></div></div>`;
   list.appendChild(li);
+  syncStatusHead();
   const bar = li.querySelector('.progress-bar');
   const barText = li.querySelector('.progress-text');
   const st = li.querySelector('.u-row span:last-child');
@@ -1107,6 +1120,13 @@ function removePickedFile(idx) {
   keep.forEach((f) => dt.items.add(f));
   input.files = dt.files;
   renderPickList();
+}
+
+/* 处理进度区有内容时才显示表头（含清空按钮） */
+function syncStatusHead() {
+  const head = document.getElementById('status-head');
+  const list = document.getElementById('ai-status');
+  if (head && list) head.classList.toggle('hidden', list.children.length === 0);
 }
 
 /* ---------- 事件委托 ---------- */
@@ -1157,6 +1177,12 @@ document.addEventListener('click', async (e) => {
       case 'pick-files': {
         const input = document.getElementById('ai-files');
         if (input) input.click();
+        break;
+      }
+      case 'clear-status': {
+        const list = document.getElementById('ai-status');
+        if (list) list.innerHTML = '';
+        syncStatusHead();
         break;
       }
       case 'manage-attachments': openManageAttachments(Number(el.dataset.record)); break;

@@ -250,6 +250,8 @@ input:disabled, select:disabled, textarea:disabled { background: var(--bg); colo
 .pick-item .link { flex-shrink: 0; }
 
 /* ============ 上传进度 ============ */
+.status-head { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
+#ai-results { scroll-margin-top: 84px; }
 .progress { background: var(--bg); border-radius: 999px; height: 18px; overflow: hidden; position: relative; margin: 10px 0; }
 .progress-bar { background: linear-gradient(90deg, var(--primary), #1296b0); height: 100%; width: 0%; transition: width .25s; }
 .progress-text { position: absolute; inset: 0; text-align: center; font-size: 12px; line-height: 18px; color: var(--text-2nd); }
