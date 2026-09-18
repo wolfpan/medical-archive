@@ -274,7 +274,6 @@ async function viewRecord(id) {
           <button class="btn" data-action="open-record-form" data-id="${r.id}">编辑</button>
           <button class="btn" data-action="manage-attachments" data-record="${r.id}">管理附件</button>
           <button class="btn" data-action="print-record">打印</button>
-          <button class="btn danger" data-action="delete-record" data-id="${r.id}">删除</button>
         </div>
       </div>
       <h1>${catBadge(r.category)} ${esc(r.title)}</h1>
@@ -959,7 +958,13 @@ async function openRecordForm(existingId, presetMemberId) {
     <label>诊断结果<textarea name="diagnosis" rows="2" maxlength="4000" placeholder="医生的诊断结论，如 BI-RADS 分级等">${esc(r?.diagnosis || '')}</textarea></label>
     <label>处理与治疗<textarea name="treatment" rows="2" maxlength="4000" placeholder="用药、手术、随访建议等">${esc(r?.treatment || '')}</textarea></label>
     <label>备注与分析<textarea name="notes" rows="3" maxlength="10000" placeholder="自己的记录、对比分析、医嘱摘要等">${esc(r?.notes || '')}</textarea></label>
-    <div class="row-end"><button type="button" class="btn" data-action="close-modal">取消</button><button class="btn primary">保存</button></div>
+    <div class="row-end" ${r ? 'style="justify-content:space-between"' : ''}>
+      ${r ? `<button type="button" class="btn danger" data-action="delete-record" data-id="${r.id}">删除</button>` : ''}
+      <div class="row">
+        <button type="button" class="btn" data-action="close-modal">取消</button>
+        <button class="btn primary">保存</button>
+      </div>
+    </div>
   </form>`);
   // 编辑模式：在表单上标记记录 id，保存时走 PUT 更新而非新建
   if (r) { const form = document.getElementById('record-form'); if (form) form.dataset.id = r.id; }
