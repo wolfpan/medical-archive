@@ -154,11 +154,15 @@ function reminderHtml(list) {
 }
 function memberCard(m) {
   const age = ageStr(m.birth_date);
+  const segs = [];
+  if (m.relationship) segs.push(esc(m.relationship));
+  if (age) segs.push(age);
+  if (m.last_activity) segs.push('最近 ' + esc(fmtDateShort(m.last_activity)));
   return `<a class="card member-card" href="#/member/${m.id}">
     <div class="avatar">${esc((m.name || '?').slice(0, 1))}</div>
     <div class="member-info">
       <div class="member-name">${esc(m.name)}${m.gender ? `<span class="gender-tag">${esc(m.gender)}</span>` : ''}</div>
-      <div class="muted small">${esc(m.relationship || '')}${age ? (m.relationship ? ' · ' : '') + age : ''}${m.last_activity ? ' · 最近 ' + esc(fmtDateShort(m.last_activity)) : ''}</div>
+      <div class="muted small meta-line">${segs.map((s) => `<span>${s}</span>`).join('')}</div>
       <div class="member-stats"><span>${m.record_count} 条记录</span><span>${m.file_count} 份文件</span></div>
     </div>
   </a>`;

@@ -141,7 +141,9 @@ input:disabled, select:disabled, textarea:disabled { background: var(--bg); colo
 .member-card:hover { text-decoration: none; border-color: var(--primary); transform: translateY(-2px); box-shadow: var(--shadow); }
 .avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--primary-light); color: var(--primary-dark); font-size: 19px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .member-name { font-size: 15px; font-weight: 600; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.member-stats { display: flex; gap: 12px; color: var(--muted); font-size: 12px; margin-top: 5px; }
+.meta-line { display: flex; flex-wrap: wrap; gap: 2px 0; margin-top: 3px; }
+.meta-line span + span::before { content: "·"; margin: 0 7px; color: var(--border-strong); }
+.member-stats { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: 12px; margin-top: 5px; }
 .gender-tag { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--bg); color: var(--muted); font-weight: 500; }
 
 /* ============ 复诊提醒 ============ */
