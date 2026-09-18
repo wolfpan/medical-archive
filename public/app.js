@@ -316,6 +316,7 @@ function fileCard(f, idx) {
       ${f.description ? `<div class="muted small clamp">${esc(f.description)}</div>` : ''}
       ${f.record_title ? `<a class="small" href="#/record/${f.record_id}">关联：${esc(f.record_title)}</a>` : ''}
       <div class="row small" style="gap:12px;margin-top:4px">
+        <button class="link" data-action="edit-file" data-id="${f.id}">编辑</button>
         <a class="link" href="/file/${f.id}?download=1">下载</a>
         <button class="link danger" data-action="delete-file" data-id="${f.id}" data-name="${esc(f.original_name)}">删除</button>
       </div>
@@ -987,6 +988,28 @@ async function openManageAttachments(recordId) {
     </div>`);
 }
 
+/* ---------- 文件编辑（重命名 / 说明） ---------- */
+async function openFileForm(id) {
+  const f = await api('/api/files/' + id);
+  openModal(`<h3>编辑文件资料</h3>
+  <form id="file-form" data-id="${f.id}">
+    <label>文件名称 *<input name="original_name" required maxlength="200" value="${esc(f.original_name)}"></label>
+    <p class="hint">不写扩展名时自动保留原扩展名（如 .mp4 / .pdf）</p>
+    <label>说明<textarea name="description" rows="2" maxlength="500">${esc(f.description)}</textarea></label>
+    <p class="muted small">${fmtSize(f.size)} · 上传于 ${esc(f.uploaded_at)}</p>
+    <div class="row-end"><button type="button" class="btn" data-action="close-modal">取消</button><button class="btn primary">保存</button></div>
+  </form>`);
+}
+async function fileSubmit(form) {
+  const b = formToObject(form);
+  await api('/api/files/' + form.dataset.id, {
+    method: 'PUT',
+    json: { original_name: b.original_name, description: b.description },
+  });
+  closeModal(); toast('已保存');
+  route();
+}
+
 /* ---------- 文件预览 ---------- */
 function openPreview(idx) {
   const list = S.previewList;
@@ -1190,6 +1213,7 @@ document.addEventListener('click', async (e) => {
         break;
       }
       case 'manage-attachments': openManageAttachments(Number(el.dataset.record)); break;
+      case 'edit-file': openFileForm(Number(el.dataset.id)); break;
       case 'discard-ai-card': {
         const idx = Number(el.dataset.idx);
         if (S.aiQueue[idx]) S.aiQueue[idx].done = true;
@@ -1235,6 +1259,7 @@ document.addEventListener('submit', async (e) => {
     'setup-form': setupSubmit,
     'member-form': memberSubmit,
     'record-form': recordSubmit,
+    'file-form': fileSubmit,
     'change-password-form': pwSubmit,
     'add-manual-form': addManualSubmit,
     'ai-config-form': async (f) => {

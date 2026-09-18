@@ -801,6 +801,15 @@ async function handleApi(req, res, u) {
     if (method === 'PUT') {
       const b = await readJson(req);
       if (b.description !== undefined) q('UPDATE files SET description=? WHERE id=?').run(cleanStr(b.description, 500), id);
+      if (b.original_name !== undefined) {
+        // 重命名仅改展示/下载名（磁盘存的是 stored_name）；清掉路径符与换行，未写扩展名时保留原扩展名
+        let name = String(b.original_name || '').replace(/[\\/:*?"<>|\r\n]+/g, '').replace(/\s+/g, ' ').trim();
+        if (!name) throw httpError(400, '文件名称不能为空');
+        if (name.length > 200) name = name.slice(0, 200);
+        const ext = (row.original_name.match(/\.[A-Za-z0-9]{1,8}$/) || [''])[0];
+        if (ext && !/\.[A-Za-z0-9]{1,8}$/.test(name)) name += ext;
+        q('UPDATE files SET original_name=? WHERE id=?').run(name, id);
+      }
       if (b.record_id !== undefined) {
         const rid = toId(b.record_id);
         if (rid) {
