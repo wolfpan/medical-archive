@@ -356,16 +356,19 @@ async function viewAdd() {
   layout(`
     <div class="card settings-sec">
       <h3>第 1 步 · 选择文件与归档成员</h3>
-      <div class="form-grid">
-        <label>归档成员
-          <select id="ai-member">
-            <option value="">AI 自动识别（按资料中姓名匹配，未匹配则新建成员）</option>
-            ${S.members.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('')}
-          </select>
-        </label>
-        <label>选择文件（可多选：图片 / PDF / 视频 / 文档）
-          <input type="file" id="ai-files" multiple>
-        </label>
+      <label>归档成员
+        <select id="ai-member">
+          <option value="">AI 自动识别（按资料中姓名匹配，未匹配则新建成员）</option>
+          ${S.members.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('')}
+        </select>
+      </label>
+      <div class="file-picker">
+        <input type="file" id="ai-files" multiple>
+        <div class="file-picker-zone" data-action="pick-files" role="button" tabindex="0">
+          <div class="fp-icon">+</div>
+          <b>点击选择文件，或把文件拖到这里</b>
+          <span class="small">支持图片 / PDF / 视频 / 文档，可多选；选错可在下方清单中移除</span>
+        </div>
       </div>
       <ul class="file-pick-list hidden" id="pick-list"></ul>
     </div>
@@ -405,6 +408,23 @@ async function viewAdd() {
     <div id="ai-results"></div>
   `, 'add');
   renderPickList();
+  // 拖拽选文件
+  const zone = document.querySelector('.file-picker-zone');
+  if (zone) {
+    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      const input = document.getElementById('ai-files');
+      if (!input) return;
+      const dt = new DataTransfer();
+      [...input.files].forEach((f) => dt.items.add(f));
+      [...(e.dataTransfer.files || [])].forEach((f) => dt.items.add(f));
+      input.files = dt.files;
+      renderPickList();
+    });
+  }
 }
 
 async function addManualSubmit(form) {
@@ -1075,7 +1095,7 @@ function renderPickList() {
     <li class="pick-item">
       <span class="pick-icon">${fileKind(f.type, f.name)}</span>
       <span class="pick-name" title="${esc(f.name)}">${esc(f.name)}</span>
-      <span class="muted small">${fmtSize(f.size)}</span>
+      <span class="pick-size">${fmtSize(f.size)}</span>
       <button type="button" class="link danger" data-action="pick-remove" data-idx="${i}">移除</button>
     </li>`).join('');
 }
@@ -1134,6 +1154,11 @@ document.addEventListener('click', async (e) => {
         break;
       }
       case 'pick-remove': removePickedFile(Number(el.dataset.idx)); break;
+      case 'pick-files': {
+        const input = document.getElementById('ai-files');
+        if (input) input.click();
+        break;
+      }
       case 'manage-attachments': openManageAttachments(Number(el.dataset.record)); break;
       case 'discard-ai-card': {
         const idx = Number(el.dataset.idx);

@@ -212,11 +212,42 @@ input:disabled, select:disabled, textarea:disabled { background: var(--bg); colo
 .preview-body video { max-width: 100%; max-height: 78vh; }
 .preview-foot { padding: 12px 20px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 
+/* ============ 选文件拖拽区 ============ */
+.file-picker { margin-top: 6px; }
+.file-picker input[type="file"] { display: none; }
+.file-picker-zone {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  border: 2px dashed var(--border-strong); border-radius: var(--radius);
+  padding: 26px 16px; cursor: pointer; text-align: center;
+  background: var(--bg); color: var(--muted);
+  transition: border-color .15s, background .15s, color .15s;
+}
+.file-picker-zone:hover, .file-picker-zone.dragover, .file-picker-zone:focus-visible {
+  border-color: var(--primary); background: var(--primary-light); color: var(--primary-dark); outline: none;
+}
+.file-picker-zone .fp-icon {
+  width: 42px; height: 42px; border-radius: 12px; background: #fff; color: var(--primary);
+  font-size: 24px; font-weight: 700; line-height: 42px; box-shadow: var(--shadow);
+}
+.file-picker-zone b { font-size: 14px; font-weight: 600; color: var(--text); }
+.file-picker-zone:hover b, .file-picker-zone.dragover b { color: var(--primary-dark); }
+.file-picker-zone .small { font-size: 12px; }
+
 /* ============ 已选文件清单 ============ */
-.file-pick-list { list-style: none; margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
-.pick-item { display: flex; align-items: center; gap: 10px; background: var(--bg); border-radius: var(--radius-sm); padding: 7px 12px; font-size: 13px; }
-.pick-icon { font-size: 11px; font-weight: 700; color: #fff; background: var(--primary); border-radius: 6px; padding: 2px 7px; flex-shrink: 0; }
-.pick-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.file-pick-list { list-style: none; margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.pick-item {
+  display: flex; align-items: center; gap: 12px;
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 9px 14px; font-size: 13px; box-shadow: var(--shadow);
+}
+.pick-icon {
+  width: 46px; text-align: center; flex-shrink: 0;
+  font-size: 11px; font-weight: 700; color: #fff; background: var(--primary);
+  border-radius: 6px; padding: 3px 0;
+}
+.pick-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: var(--text); }
+.pick-size { flex-shrink: 0; min-width: 60px; text-align: right; color: var(--muted); font-size: 12px; }
+.pick-item .link { flex-shrink: 0; }
 
 /* ============ 上传进度 ============ */
 .progress { background: var(--bg); border-radius: 999px; height: 18px; overflow: hidden; position: relative; margin: 10px 0; }
