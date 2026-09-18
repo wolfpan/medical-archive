@@ -200,7 +200,8 @@ input:disabled, select:disabled, textarea:disabled { background: var(--bg); colo
 .thumb-icon { font-size: 12px; font-weight: 700; letter-spacing: .5px; color: #fff; padding: 10px 14px; border-radius: var(--radius-sm); }
 .ti-PDF { background: #dc2626; } .ti-VIDEO { background: #7c3aed; } .ti-AUDIO { background: #0891b2; }
 .ti-IMG { background: #059669; } .ti-DOC { background: #2563eb; } .ti-FILE { background: #64748b; }
-.file-meta { padding: 11px 13px; display: flex; flex-direction: column; gap: 4px; }
+.file-meta { padding: 11px 13px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.file-actions { margin-top: auto; padding-top: 8px; gap: 12px; } /* 按钮行沉到卡片底部，多卡对齐 */
 .file-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ============ 弹窗 ============ */

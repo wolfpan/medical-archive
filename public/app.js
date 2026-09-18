@@ -315,10 +315,9 @@ function fileCard(f, idx) {
       <div class="muted small">${fmtSize(f.size)} · ${esc(fmtDateShort(f.uploaded_at))} · ${esc(f.member_name || '')}</div>
       ${f.description ? `<div class="muted small clamp">${esc(f.description)}</div>` : ''}
       ${f.record_title ? `<a class="small" href="#/record/${f.record_id}">关联：${esc(f.record_title)}</a>` : ''}
-      <div class="row small" style="gap:12px;margin-top:4px">
+      <div class="row small file-actions">
         <button class="link" data-action="edit-file" data-id="${f.id}">编辑</button>
         <a class="link" href="/file/${f.id}?download=1">下载</a>
-        <button class="link danger" data-action="delete-file" data-id="${f.id}" data-name="${esc(f.original_name)}">删除</button>
       </div>
     </div>
   </div>`;
@@ -997,7 +996,13 @@ async function openFileForm(id) {
     <p class="hint">不写扩展名时自动保留原扩展名（如 .mp4 / .pdf）</p>
     <label>说明<textarea name="description" rows="2" maxlength="500">${esc(f.description)}</textarea></label>
     <p class="muted small">${fmtSize(f.size)} · 上传于 ${esc(f.uploaded_at)}</p>
-    <div class="row-end"><button type="button" class="btn" data-action="close-modal">取消</button><button class="btn primary">保存</button></div>
+    <div class="row-end" style="justify-content:space-between">
+      <button type="button" class="btn danger" data-action="delete-file" data-id="${f.id}" data-name="${esc(f.original_name)}">删除</button>
+      <div class="row">
+        <button type="button" class="btn" data-action="close-modal">取消</button>
+        <button class="btn primary">保存</button>
+      </div>
+    </div>
   </form>`);
 }
 async function fileSubmit(form) {
@@ -1030,7 +1035,6 @@ function openPreview(idx) {
         <button class="btn" data-action="preview-prev">&larr; 上一个</button>
         <button class="btn" data-action="preview-next">下一个 &rarr;</button>
         <a class="btn" href="/file/${f.id}?download=1">下载</a>
-        <button class="btn danger" data-action="delete-file" data-id="${f.id}" data-name="${esc(f.original_name)}">删除</button>
         <button class="btn" data-action="close-modal">关闭</button>
       </div>
     </div>
