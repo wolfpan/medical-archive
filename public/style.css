@@ -46,6 +46,7 @@ h3 { font-size: 15px; font-weight: 600; }
 .hidden { display: none !important; }
 .hint { font-size: 13px; color: var(--muted); line-height: 1.7; margin: 0 0 12px; }
 .hint:last-child { margin-bottom: 0; }
+.mode-desc { margin-top: 16px; } /* 录入方式按钮与说明文字之间留出呼吸感 */
 .match-hint { color: var(--primary-dark); }
 
 /* ============ 顶栏 ============ */
@@ -77,6 +78,8 @@ main.container > .sec-title:first-child { margin-top: 6px; } /* 页面首个区�
 .card-list { display: flex; flex-direction: column; gap: 10px; }
 .empty { padding: 32px 24px; text-align: center; color: var(--muted); font-size: 14px; background: var(--card); border: 1px dashed var(--border-strong); border-radius: var(--radius); }
 .empty-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--primary-light); color: var(--primary-dark); font-size: 22px; line-height: 44px; margin: 0 auto 16px; font-weight: 700; }
+a.empty-icon { display: block; text-decoration: none; transition: background .15s, color .15s; }
+a.empty-icon:hover { background: var(--primary); color: #fff; text-decoration: none; }
 .empty p { margin: 0; }
 
 /* ============ 底部栏 ============ */

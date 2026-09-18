@@ -133,7 +133,8 @@ function layout(content, active) {
     <span class="muted">家庭医学存档 · 数据仅保存在本服务器</span>
   </footer>`;
 }
-const empty = (t) => `<div class="empty"><div class="empty-icon">+</div><p>${t}</p></div>`;
+/* 空状态：加号可点，默认直达「添加病历或资料」页 */
+const empty = (t, href = '#/add', title = '添加病历或资料') => `<div class="empty"><a class="empty-icon" href="${href}" title="${esc(title)}">+</a><p>${t}</p></div>`;
 const catBadge = (c) => `<span class="badge" data-cat="${esc(c)}">${esc(c)}</span>`;
 
 /* ---------- 首页 ---------- */
@@ -189,7 +190,7 @@ async function viewDashboard() {
   layout(`
     ${reminderHtml(ov.upcoming)}
     <h2 class="sec-title">家庭成员</h2>
-    <div class="grid members-grid">${ov.members.map(memberCard).join('') || empty('还没有家庭成员，到 <a href="#/settings">设置 → 家庭成员管理</a> 中添加')}</div>
+    <div class="grid members-grid">${ov.members.map(memberCard).join('') || empty('还没有家庭成员，到 <a href="#/settings">设置 → 家庭成员管理</a> 中添加', '#/settings', '家庭成员管理')}</div>
     <h2 class="sec-title">最近记录</h2>
     <div class="card-list">${ov.recent.map(recordRow).join('') || empty('暂无病历记录')}</div>
   `, 'home');
@@ -228,9 +229,9 @@ async function viewMember(id) {
     <h2 class="sec-title">病历记录</h2>
     ${records.length ? years.map((y) => `
       <div class="year-group"><h4>${esc(y)} 年（${byYear[y].length} 条）</h4>
-      <div class="card-list">${byYear[y].map(recordRow).join('')}</div></div>`).join('') : empty('该成员暂无病历记录。到顶部「添加病历或资料」上传报告，由 AI 整理成病历')}
+      <div class="card-list">${byYear[y].map(recordRow).join('')}</div></div>`).join('') : empty('该成员暂无病历记录。点上方加号上传报告，由 AI 整理成病历')}
     <h2 class="sec-title">影像与附件</h2>
-    ${files.length ? `<div class="grid files-grid">${files.map(fileCard).join('')}</div>` : empty('暂无文件。到顶部「添加病历或资料」可上传检查图片、PDF 报告或影像视频')}
+    ${files.length ? `<div class="grid files-grid">${files.map(fileCard).join('')}</div>` : empty('暂无文件。点上方加号可上传检查图片、PDF 报告或影像视频')}
   `, 'records');
 }
 
@@ -336,7 +337,7 @@ async function viewFiles(qs) {
         <label>关键词<input name="q" value="${esc(q)}" placeholder="文件名 / 说明…" data-autosubmit></label>
       </div>
     </form>
-    ${files.length ? `<div class="grid files-grid">${S.previewList.map((f) => fileCard(f)).join('')}</div>` : empty('暂无文件。到顶部「添加病历或资料」可上传 JPG/PNG 检查图片、PDF 报告、MP4 影像视频等')}
+    ${files.length ? `<div class="grid files-grid">${S.previewList.map((f) => fileCard(f)).join('')}</div>` : empty('暂无文件。点上方加号可上传 JPG/PNG 检查图片、PDF 报告、MP4 影像视频等')}
   `, 'files');
 }
 
@@ -379,9 +380,11 @@ async function viewAdd() {
         <button class="btn primary" data-action="ai-analyze" ${cfg.configured ? '' : 'disabled'}>AI 智能识别</button>
         <button class="btn" data-action="toggle-manual" ${S.members.length ? '' : 'disabled'}>手工录入</button>
       </div>
-      ${cfg.configured ? '' : `<p class="hint">AI 识别尚未配置，<a href="#/settings">前往设置</a> 开启后可用。</p>`}
-      <p class="hint">AI 智能识别：AI 读资料、自动写病历${cfg.configured ? `（当前模型 ${esc(cfg.model)}）` : ''}<br>
-      手工录入：自己填病历，或只传视频等附件</p>
+      <div class="mode-desc">
+        ${cfg.configured ? '' : `<p class="hint">AI 识别尚未配置，<a href="#/settings">前往设置</a> 开启后可用。</p>`}
+        <p class="hint">AI 智能识别：AI 读资料、自动写病历${cfg.configured ? `（当前模型 ${esc(cfg.model)}）` : ''}<br>
+        手工录入：自己填病历，或只传视频等附件</p>
+      </div>
       <div class="status-head hidden" id="status-head">
         <span class="muted small">处理进度</span>
         <button type="button" class="link" data-action="clear-status">清空</button>
