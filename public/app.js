@@ -181,7 +181,6 @@ function recordRow(r) {
 async function viewDashboard() {
   const ov = await api('/api/overview');
   layout(`
-    <div class="page-head"><h1>家庭健康概览</h1></div>
     ${reminderHtml(ov.upcoming)}
     <h2 class="sec-title">家庭成员</h2>
     <div class="grid members-grid">${ov.members.map(memberCard).join('') || empty('还没有家庭成员，到 <a href="#/settings">设置 → 家庭成员管理</a> 中添加')}</div>
@@ -239,7 +238,7 @@ async function viewRecords(qs) {
   if (q) params.set('q', q);
   const records = await api('/api/records' + (params.toString() ? '?' + params : ''));
   layout(`
-    <div class="page-head"><h1>病历记录${q ? ` · 搜索“${esc(q)}”` : ''}</h1></div>
+    ${q ? `<div class="page-head"><span class="muted">搜索“${esc(q)}”的结果</span></div>` : ''}
     <form id="record-filters" class="card filter-bar">
       <div class="form-grid-3">
         <label>成员<select name="member_id" data-autosubmit><option value="">全部成员</option>${S.members.map((m) => `<option value="${m.id}" ${String(mid) === String(m.id) ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select></label>
@@ -325,7 +324,6 @@ async function viewFiles(qs) {
   const files = await api('/api/files' + (params.toString() ? '?' + params : ''));
   S.previewList = files.map((f, i) => ({ ...f, __idx: i }));
   layout(`
-    <div class="page-head"><h1>影像与附件资料</h1></div>
     <form id="file-filters" class="card filter-bar">
       <div class="form-grid">
         <label>成员<select name="member_id" data-autosubmit><option value="">全部成员</option>${S.members.map((m) => `<option value="${m.id}" ${String(mid) === String(m.id) ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select></label>
@@ -351,7 +349,6 @@ async function viewAdd() {
   const cfg = await api('/api/ai/config');
   S.aiQueue = [];
   layout(`
-    <div class="page-head"><h1>添加病历或资料</h1></div>
     <div class="card settings-sec">
       <h3>第 1 步 · 选择文件与归档成员</h3>
       <div class="form-grid">
@@ -751,7 +748,6 @@ async function viewSettings() {
   const recordCount = members.reduce((s, m) => s + m.record_count, 0);
   const presetId = (AI_PRESETS.find((p) => p.base && p.base === ai.base) || {}).id || 'custom';
   layout(`
-    <h1 style="margin-bottom:16px">设置</h1>
     <div class="card settings-sec">
       <h3>家庭成员管理</h3>
       <ul class="settings-member-list">
