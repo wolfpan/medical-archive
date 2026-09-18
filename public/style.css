@@ -60,13 +60,15 @@ h3 { font-size: 15px; font-weight: 600; }
 .nav a.active { background: var(--primary-light); color: var(--primary-dark); }
 .nav a.cta { background: var(--primary); color: #fff; font-weight: 600; margin-left: 6px; }
 .nav a.cta:hover, .nav a.cta.active { background: var(--primary-dark); color: #fff; }
-.searchbar { margin-left: auto; display: flex; gap: 8px; }
-.searchbar input { width: 220px; }
+.searchbar { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.searchbar input { width: 220px; margin-top: 0; height: 36px; }
+.searchbar .btn { height: 36px; }
 
 /* ============ 布局 ============ */
 .container { max-width: 1080px; margin: 0 auto; padding: 24px 24px 8px; }
 .page-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 .sec-title { margin: 32px 0 14px; display: flex; align-items: center; gap: 9px; font-size: 17px; }
+main.container > .sec-title:first-child { margin-top: 6px; } /* 页面首个区块（页面标题已移除） */
 .sec-title::before { content: ""; width: 4px; height: 17px; border-radius: 2px; background: var(--primary); }
 .grid { display: grid; gap: 14px; }
 .members-grid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
