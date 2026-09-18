@@ -154,16 +154,17 @@ function reminderHtml(list) {
 }
 function memberCard(m) {
   const age = ageStr(m.birth_date);
-  const segs = [];
-  if (m.relationship) segs.push(esc(m.relationship));
-  if (age) segs.push(age);
-  if (m.last_activity) segs.push('最近 ' + esc(fmtDateShort(m.last_activity)));
+  const tags = [];
+  if (m.relationship) tags.push(esc(m.relationship));
+  if (age) tags.push(age);
+  const stats = [`<span>${m.record_count} 条记录</span>`, `<span>${m.file_count} 份文件</span>`];
+  if (m.last_activity) stats.push(`<span>最近 ${esc(fmtDateShort(m.last_activity))}</span>`);
   return `<a class="card member-card" href="#/member/${m.id}">
     <div class="avatar">${esc((m.name || '?').slice(0, 1))}</div>
     <div class="member-info">
       <div class="member-name">${esc(m.name)}${m.gender ? `<span class="gender-tag">${esc(m.gender)}</span>` : ''}</div>
-      <div class="muted small meta-line">${segs.map((s) => `<span>${s}</span>`).join('')}</div>
-      <div class="member-stats"><span>${m.record_count} 条记录</span><span>${m.file_count} 份文件</span></div>
+      ${tags.length ? `<div class="member-tags">${tags.map((t) => `<span>${t}</span>`).join('')}</div>` : ''}
+      <div class="member-stats">${stats.join('')}</div>
     </div>
   </a>`;
 }
@@ -366,6 +367,7 @@ async function viewAdd() {
           <input type="file" id="ai-files" multiple>
         </label>
       </div>
+      <ul class="file-pick-list hidden" id="pick-list"></ul>
     </div>
     <div class="card settings-sec">
       <h3>第 2 步 · 选择录入方式（二选一）</h3>
@@ -402,6 +404,7 @@ async function viewAdd() {
     </div>
     <div id="ai-results"></div>
   `, 'add');
+  renderPickList();
 }
 
 async function addManualSubmit(form) {
@@ -1061,6 +1064,31 @@ function makeProgressRow(name, list) {
   };
 }
 
+/* 已选文件清单：列出名称/大小，可逐个移除（防错选） */
+function renderPickList() {
+  const input = document.getElementById('ai-files');
+  const ul = document.getElementById('pick-list');
+  if (!input || !ul) return;
+  const files = [...input.files];
+  ul.classList.toggle('hidden', files.length === 0);
+  ul.innerHTML = files.map((f, i) => `
+    <li class="pick-item">
+      <span class="pick-icon">${fileKind(f.type, f.name)}</span>
+      <span class="pick-name" title="${esc(f.name)}">${esc(f.name)}</span>
+      <span class="muted small">${fmtSize(f.size)}</span>
+      <button type="button" class="link danger" data-action="pick-remove" data-idx="${i}">移除</button>
+    </li>`).join('');
+}
+function removePickedFile(idx) {
+  const input = document.getElementById('ai-files');
+  if (!input) return;
+  const keep = [...input.files].filter((_, i) => i !== idx);
+  const dt = new DataTransfer();
+  keep.forEach((f) => dt.items.add(f));
+  input.files = dt.files;
+  renderPickList();
+}
+
 /* ---------- 事件委托 ---------- */
 document.addEventListener('click', async (e) => {
   const overlay = e.target.closest('[data-action="overlay-close"]');
@@ -1105,6 +1133,7 @@ document.addEventListener('click', async (e) => {
         if (box) box.classList.toggle('hidden');
         break;
       }
+      case 'pick-remove': removePickedFile(Number(el.dataset.idx)); break;
       case 'manage-attachments': openManageAttachments(Number(el.dataset.record)); break;
       case 'discard-ai-card': {
         const idx = Number(el.dataset.idx);
@@ -1179,6 +1208,8 @@ document.addEventListener('submit', async (e) => {
 });
 
 document.addEventListener('change', async (e) => {
+  // 选择文件后刷新已选清单
+  if (e.target && e.target.id === 'ai-files') { renderPickList(); return; }
   // 附件关联/取消关联（管理附件弹窗中的复选框）
   if (e.target && e.target.dataset && e.target.dataset.action === 'toggle-attach') {
     const cb = e.target;
