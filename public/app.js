@@ -171,9 +171,10 @@ function memberCard(m) {
 function recordRow(r) {
   const vd = r.visit_date || r.created_at?.slice(0, 10) || '';
   const [y, mo, d] = vd.split('-');
+  const md = mo && d ? mo + '/' + d : (d || '');
   const nextCls = r.next_visit_date ? (daysUntil(r.next_visit_date) < 0 ? 'overdue' : daysUntil(r.next_visit_date) <= 30 ? 'soon' : 'later') : '';
   return `<a class="card record-row" href="#/record/${r.id}">
-    <div class="date-block"><span class="d-day">${d || ''}</span><span class="d-ym">${y ? y.slice(2) + '/' + mo : ''}</span></div>
+    <div class="date-block"><span class="d-day">${md}</span><span class="d-ym">${y || ''}</span></div>
     <div class="record-main">
       <div class="record-title">${catBadge(r.category)} ${esc(r.title)}</div>
       <div class="muted small">${esc(r.member_name)}${r.hospital ? ' · ' + esc(r.hospital) : ''}${r.file_count ? ' · 附件 ' + r.file_count + ' 份' : ''}</div>

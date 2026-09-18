@@ -160,7 +160,7 @@ input:disabled, select:disabled, textarea:disabled { background: var(--bg); colo
 .record-row { display: flex; gap: 16px; padding: 15px 18px; color: var(--text); align-items: flex-start; transition: border-color .15s; }
 .record-row:hover { text-decoration: none; border-color: var(--primary); }
 .date-block { min-width: 58px; text-align: center; background: var(--bg); border-radius: var(--radius-sm); padding: 7px 4px; flex-shrink: 0; }
-.d-day { display: block; font-size: 19px; font-weight: 700; line-height: 1.2; }
+.d-day { display: block; font-size: 16px; font-weight: 700; line-height: 1.2; }
 .d-ym { display: block; font-size: 11px; color: var(--muted); }
 .record-main { flex: 1; min-width: 0; }
 .record-title { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
