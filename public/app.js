@@ -132,7 +132,7 @@ function layout(content, active) {
     <span class="sep">·</span>
     <span class="muted">家庭医学存档 · 数据仅保存在本服务器</span>
     <span class="sep">·</span>
-    <a href="https://github.com/wolfpan/ltt" target="_blank" rel="noopener">GitHub 开源</a>
+    <a href="https://github.com/wolfpan/medical-archive" target="_blank" rel="noopener">GitHub 开源</a>
     <span class="sep">·</span>
     <span class="muted">V${esc(S.version)}</span>
   </footer>`;
