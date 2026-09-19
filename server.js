@@ -34,7 +34,7 @@ const AI_MAX_BODY = Number(process.env.AI_MAX_BODY || 15 * 1024 * 1024); // AI �
 const AI_TIMEOUT = Number(process.env.AI_TIMEOUT || 120000);    // AI 请求超时
 const SESSION_TTL_S = 7 * 24 * 60 * 60;                         // 会话有效期 7 天（滑动续期）
 const COOKIE_NAME = 'fma_session';
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '0.1'; // 功能迭代每次推送 +0.1，与页脚展示一致
 const CATEGORIES = ['就诊记录', '检查报告', '诊断分析', '用药记录', '手术记录', '疫苗接种', '体检报告', '其他'];
 
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -366,7 +366,9 @@ function handleFile(req, res, u) {
   let stat;
   try { stat = fs.statSync(fp); } catch { return sendJSON(res, 404, { error: '文件已丢失，请删除该记录' }); }
   const type = row.mime_type || 'application/octet-stream';
-  const disposition = (u.searchParams.get('download') ? 'attachment' : 'inline') + `; filename*=UTF-8''${encodeURIComponent(row.original_name)}`;
+  // 仅媒体/文档类允许 inline 预览；HTML 等可在浏览器执行的类型一律强制下载，防存储型 XSS
+  const inlineOk = /^(image\/|video\/|audio\/|application\/pdf\b|text\/plain\b)/.test(type);
+  const disposition = (u.searchParams.get('download') || !inlineOk ? 'attachment' : 'inline') + `; filename*=UTF-8''${encodeURIComponent(row.original_name)}`;
   const base = {
     'Content-Type': type,
     'Content-Disposition': disposition,
@@ -412,7 +414,7 @@ const STATIC_TYPES = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json',
 };
-const CSP = "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; frame-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'";
+const CSP = "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; frame-src 'self'; frame-ancestors 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'";
 function serveStatic(req, res, u) {
   let p;
   try { p = decodeURIComponent(u.pathname); } catch { p = '/'; }

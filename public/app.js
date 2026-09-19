@@ -5,7 +5,7 @@ const $modal = document.getElementById('modal-root');
 const $toast = document.getElementById('toast-root');
 
 const CATEGORIES = ['就诊记录', '检查报告', '诊断分析', '用药记录', '手术记录', '疫苗接种', '体检报告', '其他'];
-const S = { authed: false, needSetup: false, memberGate: false, members: [], previewList: [], previewIdx: 0, confirmCb: null, q: '', aiQueue: [], needRouteRefresh: false };
+const S = { authed: false, needSetup: false, memberGate: false, version: '', members: [], previewList: [], previewIdx: 0, confirmCb: null, q: '', aiQueue: [], needRouteRefresh: false };
 
 /* ---------- 工具 ---------- */
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -131,6 +131,10 @@ function layout(content, active) {
     <button type="button" class="link" data-action="logout">退出登录</button>
     <span class="sep">·</span>
     <span class="muted">家庭医学存档 · 数据仅保存在本服务器</span>
+    <span class="sep">·</span>
+    <a href="https://github.com/wolfpan/ltt" target="_blank" rel="noopener">GitHub 开源</a>
+    <span class="sep">·</span>
+    <span class="muted">V${esc(S.version)}</span>
   </footer>`;
 }
 /* 空状态：加号可点，默认直达「添加病历或资料」页 */
@@ -1390,6 +1394,7 @@ async function loadMembers() {
     S.needSetup = st.needSetup;
     S.authed = st.authed;
     S.memberGate = !!st.memberGate;
+    S.version = st.version || '';
   } catch (e) { renderError('无法连接服务器：' + e.message); return; }
   if (S.authed) await loadMembers();
   route();

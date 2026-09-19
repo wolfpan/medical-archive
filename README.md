@@ -1,5 +1,7 @@
 # 家庭医学存档（Family Medical Archive）
 
+> 开源地址：<https://github.com/wolfpan/ltt>
+
 一个可部署在自己服务器/家用电脑上的**私有家庭医学档案网站**：集中保存每位家庭成员的病历记录、就诊记录、检查影像（图片 / PDF 报告 / 视频）、诊断分析与复诊计划，复诊体检时随时打开即可查阅。
 
 - **技术栈**：HTML + 原生 JavaScript + Node.js + SQLite（`node:sqlite` 内置模块）
