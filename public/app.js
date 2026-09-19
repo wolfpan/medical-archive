@@ -164,7 +164,7 @@ function memberCard(m) {
   const stats = [`<span>${m.record_count} 条记录</span>`, `<span>${m.file_count} 份文件</span>`];
   if (m.last_activity) stats.push(`<span>最近 ${esc(fmtDateShort(m.last_activity))}</span>`);
   return `<a class="card member-card" href="#/member/${m.id}">
-    <div class="avatar">${esc((m.name || '?').slice(0, 1))}</div>
+    <div class="avatar">${esc((m.name || '?').slice(-1))}</div>
     <div class="member-info">
       <div class="member-name">${esc(m.name)}${m.gender ? `<span class="gender-tag">${esc(m.gender)}</span>` : ''}</div>
       ${tags.length ? `<div class="member-tags">${tags.map((t) => `<span>${t}</span>`).join('')}</div>` : ''}
@@ -217,7 +217,7 @@ async function viewMember(id) {
   layout(`
     <div class="page-head">
       <div class="row" style="gap:14px">
-        <div class="avatar" style="width:56px;height:56px;font-size:24px">${esc((mem.name || '?').slice(0, 1))}</div>
+        <div class="avatar" style="width:56px;height:56px;font-size:24px">${esc((mem.name || '?').slice(-1))}</div>
         <div>
           <h1 style="display:flex;gap:10px;align-items:center">${esc(mem.name)}${mem.gender ? `<span class="gender-tag">${esc(mem.gender)}</span>` : ''}</h1>
           <div class="muted small">${esc(mem.relationship || '')}${age ? (mem.relationship ? ' · ' : '') + age : ''}${mem.birth_date ? ' · ' + esc(mem.birth_date) : ''} · ${mem.record_count} 条记录 · ${mem.file_count} 份文件</div>
@@ -811,7 +811,7 @@ async function viewSettings() {
       <ul class="settings-member-list">
         ${members.map((m) => `
         <li class="settings-member-row">
-          <div class="avatar" style="width:36px;height:36px;font-size:15px">${esc((m.name || '?').slice(0, 1))}</div>
+          <div class="avatar" style="width:36px;height:36px;font-size:15px">${esc((m.name || '?').slice(-1))}</div>
           <div style="flex:1;min-width:0">
             <div><b>${esc(m.name)}</b> <span class="muted small">${esc(m.relationship || '')}${m.gender ? ' · ' + esc(m.gender) : ''}${ageStr(m.birth_date) ? ' · ' + ageStr(m.birth_date) : ''}</span></div>
             <div class="muted small">${m.record_count} 条记录 · ${m.file_count} 份文件${m.notes ? ' · ' + esc(m.notes) : ''}</div>
