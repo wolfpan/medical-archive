@@ -286,7 +286,8 @@ input:disabled, select:disabled, textarea:disabled { background: var(--bg); colo
 .settings-member-list { list-style: none; margin-bottom: 18px; }
 .settings-member-row { display: flex; align-items: center; gap: 14px; padding: 13px 2px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .settings-member-row:last-child { border-bottom: none; }
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.export-controls select { width: auto; max-width: 260px; margin-top: 0; flex: 0 1 260px; } /* 导出下拉不撑满整行 */
 .stat-box { background: var(--bg); border-radius: var(--radius-sm); padding: 16px; text-align: center; }
 .stat-box b { display: block; font-size: 22px; color: var(--primary-dark); }
 

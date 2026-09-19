@@ -34,7 +34,7 @@ const AI_MAX_BODY = Number(process.env.AI_MAX_BODY || 15 * 1024 * 1024); // AI �
 const AI_TIMEOUT = Number(process.env.AI_TIMEOUT || 120000);    // AI 请求超时
 const SESSION_TTL_S = 7 * 24 * 60 * 60;                         // 会话有效期 7 天（滑动续期）
 const COOKIE_NAME = 'fma_session';
-const APP_VERSION = '0.8'; // 功能迭代每次推送 +0.1，与页脚展示一致
+const APP_VERSION = '0.9'; // 功能迭代每次推送 +0.1，与页脚展示一致
 const CATEGORIES = ['就诊记录', '检查报告', '诊断分析', '用药记录', '手术记录', '疫苗接种', '体检报告', '其他'];
 
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });

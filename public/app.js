@@ -873,9 +873,9 @@ async function viewSettings() {
         <div class="stat-box"><b>${files.length}</b>附件文件</div>
         <div class="stat-box"><b>${fmtSize(totalSize)}</b>占用空间</div>
       </div>
-      <div class="row" style="margin-top:16px">
+      <div class="row export-controls" style="margin-top:16px">
         <select id="export-member"><option value="">全部成员数据</option>${members.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select>
-        <a class="btn" id="export-btn" href="/api/export">导出数据（JSON）</a>
+        <a class="btn primary" id="export-btn" href="/api/export">导出数据（JSON）</a>
       </div>
     </div>
     <div class="card settings-sec">
