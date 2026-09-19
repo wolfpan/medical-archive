@@ -315,6 +315,9 @@ input:disabled, select:disabled, textarea:disabled { background: var(--bg); colo
   .nav-toggle { display: inline-flex; flex-direction: column; justify-content: center; align-items: center; width: 40px; height: 38px; padding: 0; margin-left: auto; order: 4; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--card); cursor: pointer; }
   .searchbar { margin-left: 0; order: 10; width: 100%; }
   .searchbar input { flex: 1; width: auto; }
+  /* 复诊标签窄屏独占一行沉底，避免把长标题挤成碎行（左缩进与正文列对齐） */
+  .record-row { flex-wrap: wrap; }
+  .record-row > .pill { order: 3; flex-basis: 100%; width: fit-content; margin: 4px 0 0 74px; }
   .form-grid, .form-grid-3 { grid-template-columns: 1fr; }
   .meta-grid { grid-template-columns: 1fr 1fr; }
   .record-detail { padding: 20px 18px; }
