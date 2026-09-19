@@ -413,7 +413,7 @@ async function viewAdd() {
           <label>家庭成员 *<select name="member_id" required>${S.members.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select></label>
           <label>分类<select name="category">${CATEGORIES.map((c) => `<option>${c}</option>`).join('')}</select></label>
         </div>
-        <label>标题（留空 = 不创建病历，仅上传附件）<input name="title" maxlength="200" placeholder="如：XX医院 乳腺超声检查"></label>
+        <label>标题（留空 = 不创建病历，仅上传附件）<input name="title" maxlength="200" placeholder="如：乳腺超声检查"></label>
         <div class="form-grid-3">
           <label>就诊日期<input type="date" name="visit_date"></label>
           <label>医院 / 科室<input name="hospital" maxlength="100"></label>

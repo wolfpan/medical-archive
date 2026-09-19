@@ -1,6 +1,6 @@
 {
   "name": "family-medical-archive",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "家庭医学存档：病历、影像、就诊记录、诊断分析的私有存档网站（零依赖 Node.js + SQLite）",
   "main": "server.js",
   "scripts": {
