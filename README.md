@@ -56,6 +56,20 @@
 
 ## 部署到服务器（随时可查阅）
 
+### 方式零：一键脚本安装（推荐，Debian/Ubuntu）
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/wolfpan/medical-archive/main/install.sh | sudo bash
+```
+
+一条命令完成：检测/安装 Node.js 24 → 克隆代码到 `/opt/medical-archive` → 注册 systemd 服务并启动。**重复执行同一命令即可升级到最新版本**（数据目录不受影响）。自定义安装目录与端口：
+
+```bash
+sudo INSTALL_DIR=/opt/xxx PORT=3000 bash -c "$(curl -fsSL https://raw.githubusercontent.com/wolfpan/medical-archive/main/install.sh)"
+```
+
+安装完成后访问 `http://服务器IP:3000`，首次打开按提示设置管理密码；公网访问请务必套 HTTPS（见下文）。
+
 ### 方式一：直接运行（Linux）
 
 ```bash
