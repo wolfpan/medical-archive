@@ -223,7 +223,6 @@ async function viewMember(id) {
       </div>
       <div class="row no-print">
         <button class="btn" data-action="open-member-form" data-id="${mem.id}">编辑资料</button>
-        <button class="btn danger" data-action="delete-member" data-id="${mem.id}" data-name="${esc(mem.name)}">删除</button>
       </div>
     </div>
     <h2 class="sec-title">病历记录</h2>
@@ -803,7 +802,6 @@ async function viewSettings() {
           <div class="row">
             <a class="btn" href="#/member/${m.id}">查看档案</a>
             <button class="btn" data-action="open-member-form" data-id="${m.id}">编辑</button>
-            <button class="btn danger" data-action="delete-member" data-id="${m.id}" data-name="${esc(m.name)}">删除</button>
           </div>
         </li>`).join('') || '<li class="muted">暂无成员</li>'}
       </ul>
@@ -933,7 +931,13 @@ function openMemberForm(m) {
     </div>
     <label>与我的关系<input name="relationship" maxlength="30" placeholder="本人 / 配偶 / 父母 / 子女…" value="${esc(m?.relationship || '')}"></label>
     <label>备注（既往史、过敏史等）<textarea name="notes" rows="2" maxlength="1000">${esc(m?.notes || '')}</textarea></label>
-    <div class="row-end"><button type="button" class="btn" data-action="close-modal">取消</button><button class="btn primary">保存</button></div>
+    <div class="row-end" ${m ? 'style="justify-content:space-between"' : ''}>
+      ${m ? `<button type="button" class="btn danger" data-action="delete-member" data-id="${m.id}" data-name="${esc(m.name)}">删除</button>` : ''}
+      <div class="row">
+        <button type="button" class="btn" data-action="close-modal">取消</button>
+        <button class="btn primary">保存</button>
+      </div>
+    </div>
   </form>`);
 }
 
