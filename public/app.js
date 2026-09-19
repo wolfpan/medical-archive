@@ -123,6 +123,7 @@ function layout(content, active) {
       <a href="#/add" class="cta ${active === 'add' ? 'active' : ''}">添加病历或资料</a>
     </nav>
     <form class="searchbar" id="global-search"><input name="q" placeholder="搜索病历 / 诊断 / 医院…" value="${esc(S.q)}"><button class="btn" type="submit">搜索</button></form>
+    <button type="button" class="nav-toggle" data-action="toggle-nav" aria-label="菜单" aria-expanded="false"><span></span><span></span><span></span></button>
   </div></header>
   <main class="container">${content}</main>
   <footer class="site-footer">
@@ -1185,6 +1186,16 @@ document.addEventListener('click', async (e) => {
   try {
     switch (el.dataset.action) {
       case 'logout': await api('/api/logout', { method: 'POST', json: {} }); S.authed = false; location.hash = '#/login'; break;
+      case 'toggle-nav': {
+        const nav = document.querySelector('.topbar .nav');
+        const tgl = document.querySelector('.nav-toggle');
+        if (nav && tgl) {
+          const open = nav.classList.toggle('open');
+          tgl.classList.toggle('open', open);
+          tgl.setAttribute('aria-expanded', open);
+        }
+        break;
+      }
       case 'close-modal': closeModal(); break;
       case 'confirm-ok': { const cb = S.confirmCb; S.confirmCb = null; closeModal(); if (cb) await cb(); break; }
       case 'open-member-form': {

@@ -34,7 +34,7 @@ const AI_MAX_BODY = Number(process.env.AI_MAX_BODY || 15 * 1024 * 1024); // AI �
 const AI_TIMEOUT = Number(process.env.AI_TIMEOUT || 120000);    // AI 请求超时
 const SESSION_TTL_S = 7 * 24 * 60 * 60;                         // 会话有效期 7 天（滑动续期）
 const COOKIE_NAME = 'fma_session';
-const APP_VERSION = '0.4'; // 功能迭代每次推送 +0.1，与页脚展示一致
+const APP_VERSION = '0.5'; // 功能迭代每次推送 +0.1，与页脚展示一致
 const CATEGORIES = ['就诊记录', '检查报告', '诊断分析', '用药记录', '手术记录', '疫苗接种', '体检报告', '其他'];
 
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -421,18 +421,20 @@ function serveStatic(req, res, u) {
   if (p === '/') p = '/index.html';
   const fp = path.normalize(path.join(PUBLIC_DIR, p));
   if (fp !== PUBLIC_DIR && !fp.startsWith(PUBLIC_DIR + path.sep)) return sendText(res, 403, '禁止访问');
+  // index.html 注入当前版本号到静态资源 URL（?v=x.y），每次发版自动绕过浏览器/CDN 缓存
+  const sendIndex = (err, buf) => {
+    if (err) return sendText(res, 404, '未找到');
+    const b = Buffer.from(String(buf).replaceAll('@@V', APP_VERSION));
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': b.length, 'Content-Security-Policy': CSP, 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-cache' });
+    res.end(b);
+  };
   fs.readFile(fp, (err, buf) => {
     if (err) {
       // 非文件路径回退到 SPA 首页
-      if (!path.extname(p)) {
-        return fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (e2, b2) => {
-          if (e2) return sendText(res, 404, '未找到');
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': b2.length, 'Content-Security-Policy': CSP, 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-cache' });
-          res.end(b2);
-        });
-      }
+      if (!path.extname(p)) return fs.readFile(path.join(PUBLIC_DIR, 'index.html'), sendIndex);
       return sendText(res, 404, '未找到');
     }
+    if (p.endsWith('/index.html')) return fs.readFile(path.join(PUBLIC_DIR, 'index.html'), sendIndex);
     const type = STATIC_TYPES[path.extname(fp).toLowerCase()] || 'application/octet-stream';
     const headers = {
       'Content-Type': type, 'Content-Length': buf.length,
