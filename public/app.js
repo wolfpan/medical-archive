@@ -240,11 +240,12 @@ async function viewMember(id) {
 /* ---------- 病历列表 / 搜索 ---------- */
 async function viewRecords(qs) {
   const params = new URLSearchParams();
-  const mid = qs.get('member_id') || ''; const cat = qs.get('category') || ''; const q = qs.get('q') || '';
+  const mid = qs.get('member_id') || ''; const cat = qs.get('category') || ''; const q = qs.get('q') || ''; const range = qs.get('range') || '';
   S.q = q;
   if (mid) params.set('member_id', mid);
   if (cat) params.set('category', cat);
   if (q) params.set('q', q);
+  if (range) params.set('range', range);
   const records = await api('/api/records' + (params.toString() ? '?' + params : ''));
   layout(`
     ${q ? `<div class="page-head"><span class="muted">搜索“${esc(q)}”的结果</span></div>` : ''}
@@ -252,7 +253,13 @@ async function viewRecords(qs) {
       <div class="form-grid-3">
         <label>成员<select name="member_id" data-autosubmit><option value="">全部成员</option>${S.members.map((m) => `<option value="${m.id}" ${String(mid) === String(m.id) ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select></label>
         <label>分类<select name="category" data-autosubmit><option value="">全部分类</option>${CATEGORIES.map((c) => `<option ${cat === c ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
-        <label>关键词<input name="q" value="${esc(q)}" placeholder="标题 / 诊断 / 医院…" data-autosubmit></label>
+        <label>时间范围<select name="range" data-autosubmit>
+          <option value="">全部时间</option>
+          <option value="3m" ${range === '3m' ? 'selected' : ''}>近 3 个月</option>
+          <option value="6m" ${range === '6m' ? 'selected' : ''}>近半年</option>
+          <option value="1y" ${range === '1y' ? 'selected' : ''}>近一年</option>
+          <option value="2y" ${range === '2y' ? 'selected' : ''}>近 2 年</option>
+        </select></label>
       </div>
     </form>
     <div class="card-list">${records.map(recordRow).join('') || empty('没有符合条件的记录')}</div>
@@ -324,18 +331,25 @@ function fileCard(f, idx) {
   </div>`;
 }
 async function viewFiles(qs) {
-  const mid = qs.get('member_id') || ''; const q = qs.get('q') || '';
+  const mid = qs.get('member_id') || ''; const q = qs.get('q') || ''; const range = qs.get('range') || '';
   S.q = '';
   const params = new URLSearchParams();
   if (mid) params.set('member_id', mid);
   if (q) params.set('q', q);
+  if (range) params.set('range', range);
   const files = await api('/api/files' + (params.toString() ? '?' + params : ''));
   S.previewList = files.map((f, i) => ({ ...f, __idx: i }));
   layout(`
     <form id="file-filters" class="card filter-bar">
       <div class="form-grid">
         <label>成员<select name="member_id" data-autosubmit><option value="">全部成员</option>${S.members.map((m) => `<option value="${m.id}" ${String(mid) === String(m.id) ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select></label>
-        <label>关键词<input name="q" value="${esc(q)}" placeholder="文件名 / 说明…" data-autosubmit></label>
+        <label>时间范围<select name="range" data-autosubmit>
+          <option value="">全部时间</option>
+          <option value="3m" ${range === '3m' ? 'selected' : ''}>近 3 个月</option>
+          <option value="6m" ${range === '6m' ? 'selected' : ''}>近半年</option>
+          <option value="1y" ${range === '1y' ? 'selected' : ''}>近一年</option>
+          <option value="2y" ${range === '2y' ? 'selected' : ''}>近 2 年</option>
+        </select></label>
       </div>
     </form>
     ${files.length ? `<div class="grid files-grid">${S.previewList.map((f) => fileCard(f)).join('')}</div>` : empty('暂无文件。点上方加号可上传 JPG/PNG 检查图片、PDF 报告、MP4 影像视频等')}
@@ -1354,11 +1368,11 @@ document.addEventListener('change', async (e) => {
   if (form.id === 'record-filters') {
     if (fd.get('member_id')) params.set('member_id', fd.get('member_id'));
     if (fd.get('category')) params.set('category', fd.get('category'));
-    if (String(fd.get('q') || '').trim()) params.set('q', String(fd.get('q')).trim());
+    if (fd.get('range')) params.set('range', fd.get('range'));
     location.hash = '#/records' + (params.toString() ? '?' + params : '');
   } else if (form.id === 'file-filters') {
     if (fd.get('member_id')) params.set('member_id', fd.get('member_id'));
-    if (String(fd.get('q') || '').trim()) params.set('q', String(fd.get('q')).trim());
+    if (fd.get('range')) params.set('range', fd.get('range'));
     location.hash = '#/files' + (params.toString() ? '?' + params : '');
   }
 });

@@ -34,7 +34,7 @@ const AI_MAX_BODY = Number(process.env.AI_MAX_BODY || 15 * 1024 * 1024); // AI �
 const AI_TIMEOUT = Number(process.env.AI_TIMEOUT || 120000);    // AI 请求超时
 const SESSION_TTL_S = 7 * 24 * 60 * 60;                         // 会话有效期 7 天（滑动续期）
 const COOKIE_NAME = 'fma_session';
-const APP_VERSION = '0.6'; // 功能迭代每次推送 +0.1，与页脚展示一致
+const APP_VERSION = '0.7'; // 功能迭代每次推送 +0.1，与页脚展示一致
 const CATEGORIES = ['就诊记录', '检查报告', '诊断分析', '用药记录', '手术记录', '疫苗接种', '体检报告', '其他'];
 
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -241,6 +241,15 @@ FROM members m`;
 function getMember(id) { return q(MEMBER_SELECT + ' WHERE m.id=?').get(id); }
 function listMembers() { return q(MEMBER_SELECT + ' ORDER BY m.id').all(); }
 
+/* 时间维度筛选（近3个月/半年/1年/2年）：返回截止日本地日期串，无效返回 null */
+function rangeCutoff(v) {
+  const months = { '3m': 3, '6m': 6, '1y': 12, '2y': 24 }[cleanStr(v, 4)];
+  if (!months) return null;
+  const d = new Date();
+  d.setMonth(d.getMonth() - months);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function listRecords(u) {
   const where = [];
   const params = [];
@@ -254,6 +263,8 @@ function listRecords(u) {
     const like = `%${qs}%`;
     for (let i = 0; i < 8; i++) params.push(like);
   }
+  const rc = rangeCutoff(u.searchParams.get('range'));
+  if (rc) { where.push(`COALESCE(NULLIF(r.visit_date,''), substr(r.created_at,1,10)) >= ?`); params.push(rc); }
   const sql = `SELECT r.*, m.name AS member_name,
     (SELECT COUNT(*) FROM files f WHERE f.record_id = r.id) AS file_count
     FROM records r JOIN members m ON m.id = r.member_id
@@ -278,6 +289,8 @@ function listFiles(u) {
   if (memberId) { where.push('f.member_id = ?'); params.push(memberId); }
   const qs = cleanStr(u.searchParams.get('q'), 100);
   if (qs) { where.push('(f.original_name LIKE ? OR f.description LIKE ?)'); const like = `%${qs}%`; params.push(like, like); }
+  const rc = rangeCutoff(u.searchParams.get('range'));
+  if (rc) { where.push('substr(f.uploaded_at,1,10) >= ?'); params.push(rc); }
   const sql = `SELECT f.*, m.name AS member_name, r.title AS record_title
     FROM files f LEFT JOIN members m ON m.id = f.member_id LEFT JOIN records r ON r.id = f.record_id
     ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
