@@ -310,7 +310,9 @@ input:disabled, select:disabled, textarea:disabled { background: var(--bg); colo
   .form-grid, .form-grid-3 { grid-template-columns: 1fr; }
   .meta-grid { grid-template-columns: 1fr 1fr; }
   .record-detail { padding: 20px 18px; }
+  .modal { padding: 20px 18px; }
   .modal.preview-modal { width: 100%; }
+  .settings-member-row > div:last-child { width: 100%; justify-content: flex-end; }
   .container { padding: 18px 16px 28px; }
   .site-footer { padding: 16px 16px 26px; }
 }
