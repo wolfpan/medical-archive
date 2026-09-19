@@ -877,6 +877,9 @@ async function viewSettings() {
         <select id="export-member"><option value="">全部成员数据</option>${members.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select>
         <a class="btn primary" id="export-btn" href="/api/export">导出数据（JSON）</a>
       </div>
+      <div class="row" style="margin-top:10px">
+        <a class="btn" href="/api/backup">一键完整备份（ZIP，含数据库与全部附件）</a>
+      </div>
     </div>
     <div class="card settings-sec">
       <h3>备份与安全提示</h3>

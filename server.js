@@ -34,7 +34,7 @@ const AI_MAX_BODY = Number(process.env.AI_MAX_BODY || 15 * 1024 * 1024); // AI �
 const AI_TIMEOUT = Number(process.env.AI_TIMEOUT || 120000);    // AI 请求超时
 const SESSION_TTL_S = 7 * 24 * 60 * 60;                         // 会话有效期 7 天（滑动续期）
 const COOKIE_NAME = 'fma_session';
-const APP_VERSION = '0.9'; // 功能迭代每次推送 +0.1，与页脚展示一致
+const APP_VERSION = '0.10'; // 功能迭代每次推送 +0.1，与页脚展示一致
 const CATEGORIES = ['就诊记录', '检查报告', '诊断分析', '用药记录', '手术记录', '疫苗接种', '体检报告', '其他'];
 
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -682,6 +682,117 @@ async function handleAiAnalyze(req, res, u) {
   sendJSON(res, 200, { fields: sanitizeAiFields(parsed), model: cfg.model });
 }
 
+/* ================= 一键备份：流式 ZIP（store 模式，医学附件多为图片/视频等已压缩格式） ================= */
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? (0xedb88320 ^ (c >>> 1)) : c >>> 1; t[n] = c >>> 0; }
+  return t;
+})();
+function crc32(buf, crc = 0) {
+  let c = (~crc) >>> 0;
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+  return (~c) >>> 0;
+}
+function dosDateTime(d = new Date()) {
+  return {
+    time: ((d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1)) & 0xffff,
+    date: (((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate()) & 0xffff,
+  };
+}
+/* 写入一个文件条目：local header（bit3，CRC/长度随后置数据描述符）+ 流式内容（带背压） */
+async function zipWriteFile(res, name, fp, size, central, state, when) {
+  const nameBuf = Buffer.from(name, 'utf8');
+  const head = Buffer.alloc(30 + nameBuf.length);
+  head.writeUInt32LE(0x04034b50, 0);
+  head.writeUInt16LE(20, 4);      // version needed
+  head.writeUInt16LE(0x08, 6);    // flag bit3：尾随数据描述符
+  head.writeUInt16LE(0, 8);       // method: store
+  head.writeUInt16LE(when.time, 10);
+  head.writeUInt16LE(when.date, 12);
+  head.writeUInt16LE(nameBuf.length, 26);
+  nameBuf.copy(head, 30);
+  res.write(head);
+  let crc = 0;
+  await new Promise((resolve, reject) => {
+    const rs = fs.createReadStream(fp);
+    rs.on('data', (c) => {
+      crc = crc32(c, crc);
+      if (!res.write(c)) { rs.pause(); res.once('drain', () => rs.resume()); }
+    });
+    rs.on('end', resolve);
+    rs.on('error', reject);
+  });
+  const desc = Buffer.alloc(16);
+  desc.writeUInt32LE(0x08074b50, 0);
+  desc.writeUInt32LE(crc, 4);
+  desc.writeUInt32LE(size, 8);
+  desc.writeUInt32LE(size, 12);
+  res.write(desc);
+  central.push({ nameBuf, crc, size, offset: state.off });
+  state.off += head.length + size + desc.length;
+}
+/* 数据库（VACUUM INTO 一致性快照）+ uploads 全部附件 → ZIP 下载 */
+async function handleBackup(res) {
+  const when = dosDateTime();
+  const now = new Date();
+  const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  res.writeHead(200, {
+    'Content-Type': 'application/zip',
+    'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent('家庭医学存档完整备份-' + stamp + '.zip')}`,
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  const central = [];
+  const state = { off: 0 };
+  // 1) 数据库快照（避免直接复制运行中的 WAL 库导致不一致）
+  const tmpDb = path.join(DATA_DIR, `backup-tmp-${Date.now()}.db`);
+  db.exec(`VACUUM INTO '${tmpDb.replace(/'/g, "''")}'`);
+  try {
+    await zipWriteFile(res, 'archive.db', tmpDb, fs.statSync(tmpDb).size, central, state, when);
+  } finally { try { fs.unlinkSync(tmpDb); } catch { /* 已清理 */ } }
+  // 2) 附件目录递归打包
+  const list = [];
+  const walk = (dir, prefix) => {
+    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (ent.isDirectory()) walk(path.join(dir, ent.name), prefix + ent.name + '/');
+      else if (ent.isFile()) {
+        const fp = path.join(dir, ent.name);
+        list.push([prefix + ent.name, fp, fs.statSync(fp).size]);
+      }
+    }
+  };
+  if (fs.existsSync(UPLOAD_DIR)) walk(UPLOAD_DIR, 'uploads/');
+  for (const [name, fp, size] of list) await zipWriteFile(res, name, fp, size, central, state, when);
+  // 3) central directory + 结束记录
+  const cdStart = state.off;
+  let cdSize = 0;
+  for (const e of central) {
+    const rec = Buffer.alloc(46 + e.nameBuf.length);
+    rec.writeUInt32LE(0x02014b50, 0);
+    rec.writeUInt16LE(20, 4);     // version made by
+    rec.writeUInt16LE(20, 6);     // version needed
+    rec.writeUInt16LE(0, 10);     // method store
+    rec.writeUInt16LE(when.time, 12);
+    rec.writeUInt16LE(when.date, 14);
+    rec.writeUInt32LE(e.crc, 16);
+    rec.writeUInt32LE(e.size, 20);
+    rec.writeUInt32LE(e.size, 24);
+    rec.writeUInt16LE(e.nameBuf.length, 28);
+    rec.writeUInt32LE(e.offset, 42);
+    e.nameBuf.copy(rec, 46);
+    res.write(rec);
+    cdSize += rec.length;
+  }
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(Math.min(central.length, 0xffff), 8);
+  eocd.writeUInt16LE(Math.min(central.length, 0xffff), 10);
+  eocd.writeUInt32LE(cdSize, 12);
+  eocd.writeUInt32LE(cdStart, 16);
+  res.write(eocd);
+  res.end();
+}
+
 /* ================= API 路由 ================= */
 async function handleApi(req, res, u) {
   const method = req.method;
@@ -738,6 +849,7 @@ async function handleApi(req, res, u) {
     return sendJSON(res, 200, { ok: true });
   }
   if (p === '/overview' && method === 'GET') return sendJSON(res, 200, overview());
+  if (p === '/backup' && method === 'GET') return handleBackup(res);
   if (p === '/export' && method === 'GET') {
     // 支持按成员导出：?member_id=N；不带参数导出全部
     const mid = toId(u.searchParams.get('member_id'));
