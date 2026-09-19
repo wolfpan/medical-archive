@@ -900,11 +900,11 @@ function renderLogin() {
   <div class="auth-wrap"><form class="card auth-card" id="login-form">
     <div class="auth-logo">+</div>
     <h1>家庭医学存档</h1>
-    <p class="muted">${S.memberGate ? '双重验证：管理密码 + 档案成员姓名' : '单用户密码登录'}</p>
-    <input type="password" name="password" placeholder="请输入管理密码" required autofocus>
+    <p class="muted">${S.memberGate ? '双重验证：档案成员姓名 + 管理密码' : '单用户密码登录'}</p>
     ${S.memberGate
-      ? '<input name="member_name" placeholder="请输入任一档案成员的完整姓名" required maxlength="50" style="margin-top:10px">'
+      ? '<input name="member_name" placeholder="请输入任一档案成员的完整姓名" required maxlength="50" autofocus>'
       : '<p class="muted small" style="margin-top:10px">暂无档案成员：添加成员后将自动启用成员姓名校验</p>'}
+    <input type="password" name="password" placeholder="请输入管理密码" required${S.memberGate ? ' style="margin-top:10px"' : ' autofocus'}>
     <div class="auth-error" id="login-error"></div>
     <button class="btn primary block">登 录</button>
   </form></div>`;
