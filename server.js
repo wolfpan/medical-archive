@@ -34,7 +34,7 @@ const AI_MAX_BODY = Number(process.env.AI_MAX_BODY || 15 * 1024 * 1024); // AI �
 const AI_TIMEOUT = Number(process.env.AI_TIMEOUT || 120000);    // AI 请求超时
 const SESSION_TTL_S = 7 * 24 * 60 * 60;                         // 会话有效期 7 天（滑动续期）
 const COOKIE_NAME = 'fma_session';
-const APP_VERSION = '0.7'; // 功能迭代每次推送 +0.1，与页脚展示一致
+const APP_VERSION = '0.8'; // 功能迭代每次推送 +0.1，与页脚展示一致
 const CATEGORIES = ['就诊记录', '检查报告', '诊断分析', '用药记录', '手术记录', '疫苗接种', '体检报告', '其他'];
 
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -739,16 +739,28 @@ async function handleApi(req, res, u) {
   }
   if (p === '/overview' && method === 'GET') return sendJSON(res, 200, overview());
   if (p === '/export' && method === 'GET') {
+    // 支持按成员导出：?member_id=N；不带参数导出全部
+    const mid = toId(u.searchParams.get('member_id'));
+    let memberName = '';
+    if (mid) {
+      const m = q('SELECT id, name FROM members WHERE id=?').get(mid);
+      if (!m) throw httpError(404, '成员不存在');
+      memberName = m.name;
+    }
     const data = {
       exported_at: new Date().toISOString(),
-      members: q('SELECT * FROM members ORDER BY id').all(),
-      records: q('SELECT * FROM records ORDER BY id').all(),
-      files: q('SELECT id, member_id, record_id, original_name, mime_type, size, description, uploaded_at FROM files ORDER BY id').all(),
+      ...(mid ? { member_id: mid } : {}),
+      members: mid ? q('SELECT * FROM members WHERE id=?').all(mid) : q('SELECT * FROM members ORDER BY id').all(),
+      records: mid ? q('SELECT * FROM records WHERE member_id=? ORDER BY id').all(mid) : q('SELECT * FROM records ORDER BY id').all(),
+      files: mid
+        ? q('SELECT id, member_id, record_id, original_name, mime_type, size, description, uploaded_at FROM files WHERE member_id=? ORDER BY id').all(mid)
+        : q('SELECT id, member_id, record_id, original_name, mime_type, size, description, uploaded_at FROM files ORDER BY id').all(),
     };
     const body = Buffer.from(JSON.stringify(data, null, 2));
+    const prefix = mid ? memberName + '-存档导出-' : '医学存档导出-';
     res.writeHead(200, {
       'Content-Type': 'application/json; charset=utf-8', 'Content-Length': body.length,
-      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent('医学存档导出-' + new Date().toISOString().slice(0, 10) + '.json')}`,
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(prefix + new Date().toISOString().slice(0, 10) + '.json')}`,
     });
     return res.end(body);
   }

@@ -874,7 +874,8 @@ async function viewSettings() {
         <div class="stat-box"><b>${fmtSize(totalSize)}</b>占用空间</div>
       </div>
       <div class="row" style="margin-top:16px">
-        <a class="btn" href="/api/export">导出全部数据（JSON）</a>
+        <select id="export-member"><option value="">全部成员数据</option>${members.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select>
+        <a class="btn" id="export-btn" href="/api/export">导出数据（JSON）</a>
       </div>
     </div>
     <div class="card settings-sec">
@@ -1348,6 +1349,12 @@ document.addEventListener('change', async (e) => {
       cb.checked = !cb.checked;
       toast(err.message || '操作失败', false);
     }
+    return;
+  }
+  // 数据导出：按选择的成员更新导出链接
+  if (e.target && e.target.id === 'export-member') {
+    const btn = document.getElementById('export-btn');
+    if (btn) btn.href = '/api/export' + (e.target.value ? '?member_id=' + e.target.value : '');
     return;
   }
   // AI 服务商预设自动填充接口地址与模型
