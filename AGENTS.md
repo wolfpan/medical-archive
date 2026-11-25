@@ -6,6 +6,7 @@
 - 数据在 `data/`（SQLite + uploads 附件），已 gitignore：**勿提交、勿覆盖、勿删除**。
 - 接口状态码约定：**401 仅用于会话失效**（前端 `api()` 见 401 即跳回登录页）；上游 AI 服务商拒绝（Key 无效/无权限）用 502，表单校验错误（如当前密码不正确）用 400，勿混用。
 - 改动后校验：`node --check server.js`、`node --check public/app.js`（本机 node 不在 PATH，可用 DSH  bundled node：`C:\Users\panft\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe`）。
+- 文案偏好：界面尽量不出现隐私/免责类提示句（V0.18.4 已应用户要求移除，勿再添加）；`server.js` 系统提示词中的 AI 行为边界（不确诊/不开药/急症提醒等）保留，README 的免责声明章节保留。
 
 ## 提交规范
 - 提交信息风格：`V0.xx：中文摘要`（功能批次升 minor，小修补升 patch），`package.json` 的 version 同步更新；纯文档/记忆类提交可不带版本号。
