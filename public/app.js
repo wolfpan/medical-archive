@@ -365,7 +365,7 @@ async function viewFiles(qs) {
 /* ---------- AI 智能导入 ---------- */
 const AI_PRESETS = [
   { id: 'custom', name: '自定义（OpenAI 兼容接口）', base: '', model: '' },
-  { id: 'zhipu', name: '智谱 GLM（推荐）', base: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-5.3-flash' },
+  { id: 'zhipu', name: '智谱 GLM', base: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-5.3-flash' },
   { id: 'qwen', name: '阿里通义千问', base: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen3.7-plus' },
   { id: 'openai', name: 'OpenAI', base: 'https://api.openai.com/v1', model: 'gpt-5.2' },
   { id: 'gemini', name: 'Google Gemini', base: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-3-flash-preview' },
@@ -809,7 +809,7 @@ async function saveAiCard(form) {
 let aiModelsSeq = 0;
 async function loadAiModels(manual = false) {
   const baseEl = document.getElementById('ai-base');
-  if (!baseEl || !document.getElementById('ai-model-list')) return;
+  if (!baseEl || !document.getElementById('ai-model-select')) return;
   const status = document.getElementById('ai-models-result');
   const base = baseEl.value.trim();
   if (!base) { if (manual && status) status.textContent = '请先填写接口地址'; return; }
@@ -819,17 +819,58 @@ async function loadAiModels(manual = false) {
     const keyEl = document.getElementById('ai-key');
     const r = await api('/api/ai/models', { method: 'POST', json: { base, key: keyEl ? keyEl.value : '' } });
     if (seq !== aiModelsSeq) return;
-    const list = document.getElementById('ai-model-list');
+    if (!document.getElementById('ai-model-select')) return;
+    S.aiModels = r.models;
+    fillModelSelect('model', r.models);
+    fillModelSelect('consult_model', r.models);
     const st = document.getElementById('ai-models-result');
-    if (!list) return;
-    list.innerHTML = r.models.map((m) => `<option value="${esc(m)}">`).join('');
     if (st) st.textContent = r.models.length
-      ? `已获取 ${r.models.length} 个模型：点击模型输入框可下拉选择，也可直接手动填写`
-      : '接口未返回模型列表，请手动填写模型名称';
+      ? `已获取 ${r.models.length} 个模型，可在下拉框选择；列表外的模型选「手动输入…」`
+      : '接口未返回模型列表，请选「手动输入…」填写模型名称';
   } catch (err) {
     if (seq !== aiModelsSeq) return;
     const st = document.getElementById('ai-models-result');
-    if (st) st.textContent = '获取模型列表失败：' + err.message + '（可手动填写模型名称）';
+    if (st) st.textContent = '获取模型列表失败：' + err.message + '（可选「手动输入…」填写模型名称）';
+  }
+}
+
+/* 模型下拉框：隐藏 input 存实际值（表单提交用），select 仅作选择器；
+   「手动输入…」切换到文本框，用于自定义模型或接口未提供 /models 的情况。 */
+const MODEL_MANUAL = '__manual__';
+function modelFieldIds(field) {
+  return field === 'consult_model'
+    ? { hidden: 'ai-consult-model', select: 'ai-consult-model-select', row: 'ai-consult-model-manual-row', input: 'ai-consult-model-manual' }
+    : { hidden: 'ai-model', select: 'ai-model-select', row: 'ai-model-manual-row', input: 'ai-model-manual' };
+}
+function fillModelSelect(field, models) {
+  const ids = modelFieldIds(field);
+  const hid = document.getElementById(ids.hidden);
+  const sel = document.getElementById(ids.select);
+  if (!hid || !sel) return;
+  const cur = hid.value;
+  const list = [...new Set((models || []).concat(cur ? [cur] : []))].sort((a, b) => a.localeCompare(b));
+  const emptyLabel = field === 'consult_model' ? '（留空：使用上方模型）' : (list.length ? '（请选择模型）' : '（暂无模型列表）');
+  const opts = [`<option value="" ${cur ? '' : 'selected'}>${emptyLabel}</option>`]
+    .concat(list.map((m) => `<option value="${esc(m)}" ${m === cur ? 'selected' : ''}>${esc(m)}</option>`))
+    .concat([`<option value="${MODEL_MANUAL}">手动输入…</option>`]);
+  sel.innerHTML = opts.join('');
+}
+function setModelManual(field, on) {
+  const ids = modelFieldIds(field);
+  const hid = document.getElementById(ids.hidden);
+  const sel = document.getElementById(ids.select);
+  const row = document.getElementById(ids.row);
+  const inp = document.getElementById(ids.input);
+  if (!hid || !sel || !row || !inp) return;
+  if (on) {
+    inp.value = hid.value;
+    sel.classList.add('hidden');
+    row.classList.remove('hidden');
+    inp.focus();
+  } else {
+    row.classList.add('hidden');
+    sel.classList.remove('hidden');
+    fillModelSelect(field, S.aiModels || []);
   }
 }
 
@@ -874,8 +915,13 @@ async function viewSettings() {
           </label>
         </div>
         <div class="form-grid">
-          <label>模型名称（识别图片需选择视觉模型）
-            <input name="model" id="ai-model" list="ai-model-list" placeholder="如 glm-5.3-flash / qwen3.7-plus / gpt-5.2 / deepseek-flash" value="${esc(ai.model || '')}">
+          <label>模型名称
+            <select id="ai-model-select"></select>
+            <div class="row hidden" id="ai-model-manual-row">
+              <input id="ai-model-manual" style="flex:1" placeholder="输入模型名，如 glm-5.3-flash">
+              <button type="button" class="btn" data-action="ai-model-list-mode" data-field="model">列表选择</button>
+            </div>
+            <input type="hidden" name="model" id="ai-model" value="${esc(ai.model || '')}">
           </label>
           <label>API Key ${ai.key_masked ? `（已保存：${esc(ai.key_masked)}，留空表示不修改）` : '（本地模型如 Ollama 可留空）'}
             <input type="password" name="key" id="ai-key" placeholder="${ai.key_masked ? '留空保持现有 Key 不变' : 'sk-...'}" autocomplete="new-password">
@@ -883,9 +929,13 @@ async function viewSettings() {
         </div>
         <div class="form-grid">
           <label>问诊模型（可选，用于 AI 问诊 / 健康趋势 / 复诊准备）
-            <input name="consult_model" id="ai-consult-model" list="ai-model-list" placeholder="留空则使用上方模型；文本模型即可，如 deepseek-chat" value="${esc(ai.consult_model || '')}">
+            <select id="ai-consult-model-select"></select>
+            <div class="row hidden" id="ai-consult-model-manual-row">
+              <input id="ai-consult-model-manual" style="flex:1" placeholder="留空则使用上方模型；文本模型即可，如 deepseek-chat">
+              <button type="button" class="btn" data-action="ai-model-list-mode" data-field="consult_model">列表选择</button>
+            </div>
+            <input type="hidden" name="consult_model" id="ai-consult-model" value="${esc(ai.consult_model || '')}">
           </label>
-          <p class="hint" style="align-self:end;margin:0">识别图片需视觉模型；问诊只需文本模型，分开配置可降低成本。</p>
         </div>
         <div class="row">
           <button class="btn primary">保存配置</button>
@@ -894,11 +944,9 @@ async function viewSettings() {
           <span class="muted small" id="ai-test-result">${ai.configured ? '当前状态：已配置' : '当前状态：未配置'}</span>
         </div>
         <p class="hint" id="ai-models-result" style="margin:8px 0 0"></p>
-        <datalist id="ai-model-list"></datalist>
       </form>
       <p class="hint" style="margin-top:16px">
-        说明：使用"AI 导入"时，所上传的资料会发送给你在此配置的 AI 服务商做识别；使用"AI 问诊"时，所选成员的病历档案会发送给该服务商做解读，请自行评估隐私风险；
-        如需完全不离内网，可选 Ollama 本地部署的模型（识别图片需视觉模型如 qwen2.5vl，问诊用文本模型即可）。Key 仅保存在本服务器数据库中。
+        说明：AI 导入与 AI 问诊会把资料/病历发送给你配置的 AI 服务商处理，请自行评估隐私风险；敏感资料可选 Ollama 本地模型（数据不出内网）。Key 仅保存在本服务器数据库中。
       </p>
     </div>
     <div class="card settings-sec">
@@ -937,6 +985,8 @@ async function viewSettings() {
       </p>
     </div>
   `, 'settings');
+  fillModelSelect('model', S.aiModels || []);
+  fillModelSelect('consult_model', S.aiModels || []);
   if (ai.base) loadAiModels(); // 已有配置时自动拉取模型列表供下拉选择
 }
 
@@ -1690,6 +1740,7 @@ document.addEventListener('click', async (e) => {
         if (form) form.remove();
         break;
       }
+      case 'ai-model-list-mode': setModelManual(el.dataset.field, false); break;
       case 'ai-models': loadAiModels(true); break;
       case 'ai-test': {
         const form = document.getElementById('ai-config-form');
@@ -1820,8 +1871,19 @@ document.addEventListener('change', async (e) => {
     if (p) {
       document.getElementById('ai-base').value = p.base;
       document.getElementById('ai-model').value = p.model;
+      setModelManual('model', false);
     }
     loadAiModels();
+    return;
+  }
+  // 模型下拉框：选中即写入隐藏 input；选「手动输入…」切换到文本框
+  if (e.target && (e.target.id === 'ai-model-select' || e.target.id === 'ai-consult-model-select')) {
+    const field = e.target.id === 'ai-model-select' ? 'model' : 'consult_model';
+    if (e.target.value === MODEL_MANUAL) setModelManual(field, true);
+    else {
+      const hid = document.getElementById(modelFieldIds(field).hidden);
+      if (hid) hid.value = e.target.value;
+    }
     return;
   }
   // 接口地址或 Key 填写完成后自动获取模型列表（Ollama 允许空 Key）
@@ -1843,6 +1905,14 @@ document.addEventListener('change', async (e) => {
     if (fd.get('member_id')) params.set('member_id', fd.get('member_id'));
     if (fd.get('range')) params.set('range', fd.get('range'));
     location.hash = '#/files' + (params.toString() ? '?' + params : '');
+  }
+});
+
+/* 模型手动输入框：实时同步到隐藏 input（表单值） */
+document.addEventListener('input', (e) => {
+  if (e.target && (e.target.id === 'ai-model-manual' || e.target.id === 'ai-consult-model-manual')) {
+    const hid = document.getElementById(e.target.id === 'ai-model-manual' ? 'ai-model' : 'ai-consult-model');
+    if (hid) hid.value = e.target.value.trim();
   }
 });
 

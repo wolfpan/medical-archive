@@ -22,4 +22,4 @@
 - 固定采样参数模型（Kimi K 系列、OpenAI GPT-5/o 系列）拒绝非默认 `temperature`（400）：`server.js` 的 `fixedSampling()` 已按模型名前缀省略该参数，新增此类模型时需纳入判断。
 - 服务端以 OpenAI 兼容 `image_url` + base64 传图；Kimi 视觉仅支持 base64/文件 ID（不支持外部 URL），与本实现兼容。
 - 已保存的用户配置不受预设更新影响（预设仅在切换下拉时自动填充，按 base URL 匹配选中项）。
-- 设置页模型列表：`POST /api/ai/models` 由服务端代理 `GET {base}/models`（Key 留空用已保存值；Ollama 允许无 Key）；前端 `loadAiModels()` 在填写接口地址/Key、切换预设、打开设置页时自动触发，填充 datalist（模型与问诊模型输入框共用）。
+- 设置页模型列表：`POST /api/ai/models` 由服务端代理 `GET {base}/models`（Key 留空用已保存值；Ollama 允许无 Key）；前端 `loadAiModels()` 在填写接口地址/Key、切换预设、打开设置页时自动触发。模型与问诊模型均为真正的 `<select>` 下拉框（隐藏 input 存表单值），含「手动输入…」兜底切换文本框；勿用 datalist（浏览器渲染为悬浮提示泡泡，非下拉框）。
