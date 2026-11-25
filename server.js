@@ -1341,6 +1341,35 @@ async function handleApi(req, res, u) {
       const reply = await aiChat([{ role: 'user', content: '连通性测试，请只回复两个字母：OK' }], { base, model, key, timeoutMs: 25000 });
       return sendJSON(res, 200, { ok: true, reply: reply.slice(0, 60) });
     }
+    if (seg[1] === 'models' && method === 'POST') {
+      const b = await readJson(req);
+      const base = cleanStr(b.base, 300) || aiConfig().base;
+      const key = (typeof b.key === 'string' && b.key.trim()) ? b.key.trim() : aiConfig().key;
+      if (!base) throw httpError(400, '请先填写接口地址');
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 20000);
+      let up;
+      try {
+        up = await fetch(base.replace(/\/+$/, '') + '/models', {
+          headers: { ...(key ? { Authorization: 'Bearer ' + key } : {}) },
+          signal: ctrl.signal,
+        });
+      } catch (e) {
+        const msg = e.name === 'AbortError' ? '请求超时' : e.message;
+        throw httpError(502, '无法连接 AI 服务：' + msg);
+      } finally { clearTimeout(timer); }
+      const text = await up.text();
+      let data = null; try { data = JSON.parse(text); } catch { /* 非 JSON 响应 */ }
+      if (!up.ok) {
+        if (up.status === 401 || up.status === 403) throw httpError(401, 'AI 服务商拒绝了请求：API Key 无效或无权限（' + up.status + '）');
+        const msg = (data && data.error && data.error.message) || text.slice(0, 200) || ('HTTP ' + up.status);
+        throw httpError(502, '获取模型列表失败 ' + up.status + '：' + msg);
+      }
+      const raw = data && Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
+      const ids = raw.map((m) => (typeof m === 'string' ? m : m && typeof m.id === 'string' ? m.id : '')).filter(Boolean);
+      const models = [...new Set(ids)].sort((a, b) => a.localeCompare(b)).slice(0, 2000);
+      return sendJSON(res, 200, { models });
+    }
     if (seg[1] === 'analyze' && method === 'POST') return handleAiAnalyze(req, res, u);
     if (seg[1] === 'analyze-pages' && method === 'POST') {
       const b = await readJsonBig(req);

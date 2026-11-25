@@ -365,12 +365,12 @@ async function viewFiles(qs) {
 /* ---------- AI 智能导入 ---------- */
 const AI_PRESETS = [
   { id: 'custom', name: '自定义（OpenAI 兼容接口）', base: '', model: '' },
-  { id: 'zhipu', name: '智谱 GLM（支持视觉，推荐）', base: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-5.3-flash' },
-  { id: 'qwen', name: '阿里通义千问（支持视觉）', base: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen3.7-plus' },
-  { id: 'openai', name: 'OpenAI（支持视觉）', base: 'https://api.openai.com/v1', model: 'gpt-5.2' },
-  { id: 'gemini', name: 'Google Gemini（支持视觉）', base: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-3-flash-preview' },
-  { id: 'kimi', name: 'Moonshot Kimi（支持视觉）', base: 'https://api.moonshot.cn/v1', model: 'kimi-k3' },
-  { id: 'deepseek', name: 'DeepSeek（支持视觉）', base: 'https://api.deepseek.com/v1', model: 'deepseek-flash' },
+  { id: 'zhipu', name: '智谱 GLM（推荐）', base: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-5.3-flash' },
+  { id: 'qwen', name: '阿里通义千问', base: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen3.7-plus' },
+  { id: 'openai', name: 'OpenAI', base: 'https://api.openai.com/v1', model: 'gpt-5.2' },
+  { id: 'gemini', name: 'Google Gemini', base: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-3-flash-preview' },
+  { id: 'kimi', name: 'Moonshot Kimi', base: 'https://api.moonshot.cn/v1', model: 'kimi-k3' },
+  { id: 'deepseek', name: 'DeepSeek', base: 'https://api.deepseek.com/v1', model: 'deepseek-flash' },
   { id: 'ollama', name: 'Ollama 本地模型（数据不出内网）', base: 'http://localhost:11434/v1', model: '' },
 ];
 
@@ -804,6 +804,35 @@ async function saveAiCard(form) {
 }
 
 
+/* 模型列表：经服务端代理请求接口地址的 OpenAI 兼容 GET /models（Key 不经前端外传）；
+   Key 留空时用服务器已保存的 Key，Ollama 等本地服务允许无 Key。 */
+let aiModelsSeq = 0;
+async function loadAiModels(manual = false) {
+  const baseEl = document.getElementById('ai-base');
+  if (!baseEl || !document.getElementById('ai-model-list')) return;
+  const status = document.getElementById('ai-models-result');
+  const base = baseEl.value.trim();
+  if (!base) { if (manual && status) status.textContent = '请先填写接口地址'; return; }
+  const seq = ++aiModelsSeq;
+  if (status) status.textContent = '正在获取模型列表…';
+  try {
+    const keyEl = document.getElementById('ai-key');
+    const r = await api('/api/ai/models', { method: 'POST', json: { base, key: keyEl ? keyEl.value : '' } });
+    if (seq !== aiModelsSeq) return;
+    const list = document.getElementById('ai-model-list');
+    const st = document.getElementById('ai-models-result');
+    if (!list) return;
+    list.innerHTML = r.models.map((m) => `<option value="${esc(m)}">`).join('');
+    if (st) st.textContent = r.models.length
+      ? `已获取 ${r.models.length} 个模型：点击模型输入框可下拉选择，也可直接手动填写`
+      : '接口未返回模型列表，请手动填写模型名称';
+  } catch (err) {
+    if (seq !== aiModelsSeq) return;
+    const st = document.getElementById('ai-models-result');
+    if (st) st.textContent = '获取模型列表失败：' + err.message + '（可手动填写模型名称）';
+  }
+}
+
 /* ---------- 设置页 ---------- */
 async function viewSettings() {
   const members = await api('/api/members');
@@ -846,7 +875,7 @@ async function viewSettings() {
         </div>
         <div class="form-grid">
           <label>模型名称（识别图片需选择视觉模型）
-            <input name="model" id="ai-model" placeholder="如 glm-5.3-flash / qwen3.7-plus / gpt-5.2 / deepseek-flash" value="${esc(ai.model || '')}">
+            <input name="model" id="ai-model" list="ai-model-list" placeholder="如 glm-5.3-flash / qwen3.7-plus / gpt-5.2 / deepseek-flash" value="${esc(ai.model || '')}">
           </label>
           <label>API Key ${ai.key_masked ? `（已保存：${esc(ai.key_masked)}，留空表示不修改）` : '（本地模型如 Ollama 可留空）'}
             <input type="password" name="key" id="ai-key" placeholder="${ai.key_masked ? '留空保持现有 Key 不变' : 'sk-...'}" autocomplete="new-password">
@@ -854,15 +883,18 @@ async function viewSettings() {
         </div>
         <div class="form-grid">
           <label>问诊模型（可选，用于 AI 问诊 / 健康趋势 / 复诊准备）
-            <input name="consult_model" id="ai-consult-model" placeholder="留空则使用上方模型；文本模型即可，如 deepseek-chat" value="${esc(ai.consult_model || '')}">
+            <input name="consult_model" id="ai-consult-model" list="ai-model-list" placeholder="留空则使用上方模型；文本模型即可，如 deepseek-chat" value="${esc(ai.consult_model || '')}">
           </label>
           <p class="hint" style="align-self:end;margin:0">识别图片需视觉模型；问诊只需文本模型，分开配置可降低成本。</p>
         </div>
         <div class="row">
           <button class="btn primary">保存配置</button>
+          <button type="button" class="btn" data-action="ai-models">获取模型列表</button>
           <button type="button" class="btn" data-action="ai-test">测试连接</button>
           <span class="muted small" id="ai-test-result">${ai.configured ? '当前状态：已配置' : '当前状态：未配置'}</span>
         </div>
+        <p class="hint" id="ai-models-result" style="margin:8px 0 0"></p>
+        <datalist id="ai-model-list"></datalist>
       </form>
       <p class="hint" style="margin-top:16px">
         说明：使用"AI 导入"时，所上传的资料会发送给你在此配置的 AI 服务商做识别；使用"AI 问诊"时，所选成员的病历档案会发送给该服务商做解读，请自行评估隐私风险；
@@ -905,6 +937,7 @@ async function viewSettings() {
       </p>
     </div>
   `, 'settings');
+  if (ai.base) loadAiModels(); // 已有配置时自动拉取模型列表供下拉选择
 }
 
 /* ---------- AI 问诊（对话式报告解读） ---------- */
@@ -1657,6 +1690,7 @@ document.addEventListener('click', async (e) => {
         if (form) form.remove();
         break;
       }
+      case 'ai-models': loadAiModels(true); break;
       case 'ai-test': {
         const form = document.getElementById('ai-config-form');
         const fd = new FormData(form);
@@ -1780,15 +1814,18 @@ document.addEventListener('change', async (e) => {
     if (btn) btn.href = '/api/export' + (e.target.value ? '?member_id=' + e.target.value : '');
     return;
   }
-  // AI 服务商预设自动填充接口地址与模型
+  // AI 服务商预设自动填充接口地址与模型，并自动获取模型列表
   if (e.target && e.target.id === 'ai-preset') {
     const p = AI_PRESETS.find((x) => x.id === e.target.value);
     if (p) {
       document.getElementById('ai-base').value = p.base;
       document.getElementById('ai-model').value = p.model;
     }
+    loadAiModels();
     return;
   }
+  // 接口地址或 Key 填写完成后自动获取模型列表（Ollama 允许空 Key）
+  if (e.target && (e.target.id === 'ai-base' || e.target.id === 'ai-key')) { loadAiModels(); return; }
   // 问诊：切换成员后刷新可勾选的病历范围
   if (e.target && e.target.id === 'consult-member') { renderConsultScope(); return; }
   const el = e.target.closest('[data-autosubmit]');
