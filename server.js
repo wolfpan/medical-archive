@@ -503,6 +503,13 @@ function aiConfig() {
   return { base: (getSetting('ai_base') || '').trim(), model: (getSetting('ai_model') || '').trim(), key: getSetting('ai_key') || '', consultModel: (getSetting('ai_consult_model') || '').trim() };
 }
 
+/* 部分新一代模型固定采样参数：temperature 仅接受默认值 1，传其他值会返回 400。
+   Kimi K 系列（官方文档：K3 系列 temperature 固定 1.0）；OpenAI GPT-5 系列与 o 系列推理模型。
+   对这些模型省略 temperature，其余模型仍用低温度保证信息抽取稳定。 */
+function fixedSampling(model) {
+  return /^(kimi-k|gpt-5|o\d)/i.test(model || '');
+}
+
 async function aiChat(messages, o = {}) {
   const base = (o.base !== undefined ? o.base : aiConfig().base || '').trim();
   const model = (o.model !== undefined ? o.model : aiConfig().model || '').trim();
@@ -515,7 +522,7 @@ async function aiChat(messages, o = {}) {
     res = await fetch(base.replace(/\/+$/, '') + '/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(key ? { Authorization: 'Bearer ' + key } : {}) },
-      body: JSON.stringify({ model, messages, temperature: 0.1 }),
+      body: JSON.stringify({ model, messages, ...(fixedSampling(model) ? {} : { temperature: 0.1 }) }),
       signal: ctrl.signal,
     });
   } catch (e) {
@@ -856,7 +863,7 @@ async function aiChatStream(messages, o = {}) {
     res = await fetch(base.replace(/\/+$/, '') + '/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(key ? { Authorization: 'Bearer ' + key } : {}) },
-      body: JSON.stringify({ model, messages, temperature: 0.3, stream: true }),
+      body: JSON.stringify({ model, messages, ...(fixedSampling(model) ? {} : { temperature: 0.3 }), stream: true }),
       signal: ctrl.signal,
     });
   } catch (e) {

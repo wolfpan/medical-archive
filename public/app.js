@@ -365,11 +365,12 @@ async function viewFiles(qs) {
 /* ---------- AI 智能导入 ---------- */
 const AI_PRESETS = [
   { id: 'custom', name: '自定义（OpenAI 兼容接口）', base: '', model: '' },
-  { id: 'zhipu', name: '智谱 GLM（支持视觉，推荐）', base: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4v-plus' },
-  { id: 'qwen', name: '阿里通义千问（支持视觉）', base: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-vl-plus' },
-  { id: 'openai', name: 'OpenAI', base: 'https://api.openai.com/v1', model: 'gpt-4o' },
-  { id: 'kimi', name: 'Moonshot Kimi（支持视觉）', base: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-8k-vision-preview' },
-  { id: 'deepseek', name: 'DeepSeek（仅文本，不能识别图片）', base: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+  { id: 'zhipu', name: '智谱 GLM（支持视觉，推荐）', base: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-5.3-flash' },
+  { id: 'qwen', name: '阿里通义千问（支持视觉）', base: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen3.7-plus' },
+  { id: 'openai', name: 'OpenAI（支持视觉）', base: 'https://api.openai.com/v1', model: 'gpt-5.2' },
+  { id: 'gemini', name: 'Google Gemini（支持视觉）', base: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-3-flash-preview' },
+  { id: 'kimi', name: 'Moonshot Kimi（支持视觉）', base: 'https://api.moonshot.cn/v1', model: 'kimi-k3' },
+  { id: 'deepseek', name: 'DeepSeek（支持视觉）', base: 'https://api.deepseek.com/v1', model: 'deepseek-flash' },
   { id: 'ollama', name: 'Ollama 本地模型（数据不出内网）', base: 'http://localhost:11434/v1', model: '' },
 ];
 
@@ -845,7 +846,7 @@ async function viewSettings() {
         </div>
         <div class="form-grid">
           <label>模型名称（识别图片需选择视觉模型）
-            <input name="model" id="ai-model" placeholder="如 glm-4v-plus / qwen-vl-plus / gpt-4o" value="${esc(ai.model || '')}">
+            <input name="model" id="ai-model" placeholder="如 glm-5.3-flash / qwen3.7-plus / gpt-5.2 / deepseek-flash" value="${esc(ai.model || '')}">
           </label>
           <label>API Key ${ai.key_masked ? `（已保存：${esc(ai.key_masked)}，留空表示不修改）` : '（本地模型如 Ollama 可留空）'}
             <input type="password" name="key" id="ai-key" placeholder="${ai.key_masked ? '留空保持现有 Key 不变' : 'sk-...'}" autocomplete="new-password">
