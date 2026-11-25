@@ -153,6 +153,7 @@ function reminderHtml(list) {
       <span class="reminder-date">${esc(r.next_visit_date)}</span>
       <a href="#/record/${r.id}"><b>${esc(r.title)}</b></a>
       <span class="muted small">${esc(r.member_name)}${r.hospital ? ' · ' + esc(r.hospital) : ''}</span>
+      <a class="link" href="#/consult/new?member_id=${r.member_id}&record_ids=${r.id}&auto=1&auto_q=${encodeURIComponent('复诊日期是 ' + r.next_visit_date + '。请基于这份报告提醒我就诊前要注意什么、要向医生问哪些问题。')}">问 AI</a>
     </div>`;
   }).join('');
   return `<h2 class="sec-title">复诊提醒</h2><div class="card reminder-card">${rows}</div>`;
@@ -227,6 +228,8 @@ async function viewMember(id) {
       </div>
       <div class="row no-print">
         <a class="btn" href="#/consult/new?member_id=${mem.id}">AI 问诊</a>
+        <a class="btn" href="#/consult/new?member_id=${mem.id}&kind=trends&auto=1">健康趋势</a>
+        <a class="btn" href="#/consult/new?member_id=${mem.id}&kind=visit-prep&auto=1">复诊准备</a>
         <button class="btn" data-action="open-member-form" data-id="${mem.id}">编辑资料</button>
       </div>
     </div>
@@ -848,6 +851,12 @@ async function viewSettings() {
             <input type="password" name="key" id="ai-key" placeholder="${ai.key_masked ? '留空保持现有 Key 不变' : 'sk-...'}" autocomplete="new-password">
           </label>
         </div>
+        <div class="form-grid">
+          <label>问诊模型（可选，用于 AI 问诊 / 健康趋势 / 复诊准备）
+            <input name="consult_model" id="ai-consult-model" placeholder="留空则使用上方模型；文本模型即可，如 deepseek-chat" value="${esc(ai.consult_model || '')}">
+          </label>
+          <p class="hint" style="align-self:end;margin:0">识别图片需视觉模型；问诊只需文本模型，分开配置可降低成本。</p>
+        </div>
         <div class="row">
           <button class="btn primary">保存配置</button>
           <button type="button" class="btn" data-action="ai-test">测试连接</button>
@@ -900,6 +909,9 @@ async function viewSettings() {
 /* ---------- AI 问诊（对话式报告解读） ---------- */
 const CONSULT_CHIPS_REPORT = ['用大白话总结这份报告', '逐项解释异常指标', '整体情况严重吗？', '日常生活要注意什么？', '下次复诊要问医生什么？'];
 const CONSULT_CHIPS_GENERAL = ['总结最近的健康状况', '哪些项目需要复查？', '有需要尽快就医的问题吗？', '下一步建议做什么检查？'];
+const CONSULT_CHIPS_TRENDS = ['哪些指标在变差？', '哪些项目好久没复查了？', '总体健康状况怎么样？', '接下来优先复查什么？'];
+const CONSULT_CHIPS_PREP = ['还有哪些问题值得问医生？', '就诊前要做什么准备？', '怎么向医生描述症状变化？'];
+const CONSULT_KINDS = ['chat', 'trends', 'visit-prep'];
 
 /* 迷你 Markdown 渲染：先整体 esc 转义，再做受限格式化（AI 输出不可信，杜绝 XSS；不引外部库，符合 CSP） */
 function mdInline(s) {
@@ -1001,24 +1013,27 @@ function updateConsultInputState() {
 function renderConsultChat() {
   const c = S.consult;
   if (!c) return;
-  const scopeText = c.scopeRecords.length
-    ? `${esc(c.memberName)} 的 ${c.scopeRecords.length} 条病历全文`
+  const scopeText = c.kind === 'trends' ? `${esc(c.memberName)} 的历年病历（趋势对比）`
+    : c.kind === 'visit-prep' ? `${esc(c.memberName)} 的近期病历（复诊准备）`
+    : c.scopeRecords.length ? `${esc(c.memberName)} 的 ${c.scopeRecords.length} 条病历全文`
     : `${esc(c.memberName)} 的近期病历摘要`;
-  const chips = c.recordIds.length ? CONSULT_CHIPS_REPORT : CONSULT_CHIPS_GENERAL;
+  const kindBadge = c.kind === 'trends' ? '<span class="badge badge-kind">趋势分析</span> ' : c.kind === 'visit-prep' ? '<span class="badge badge-kind">复诊准备</span> ' : '';
+  const chips = c.kind === 'trends' ? CONSULT_CHIPS_TRENDS : c.kind === 'visit-prep' ? CONSULT_CHIPS_PREP : c.recordIds.length ? CONSULT_CHIPS_REPORT : CONSULT_CHIPS_GENERAL;
   layout(`
     <div class="consult-wrap">
       <div class="card consult-head">
         <div class="consult-head-main">
           <a href="#/consult" class="small">&larr; 全部会话</a>
-          <h1 id="consult-title">${esc(c.title || '新问诊')}</h1>
+          <h1 id="consult-title">${kindBadge}${esc(c.title || '新问诊')}</h1>
           <div class="muted small">上下文：${scopeText} · <a href="#/member/${c.memberId}">查看档案</a>${c.scopeRecords.length ? ' · ' + c.scopeRecords.map((r) => `<a href="#/record/${r.id}">${esc(r.title)}</a>`).join('、') : ''}</div>
         </div>
         <div class="row no-print">
           ${c.id ? `<button type="button" class="btn" data-action="rename-chat" data-id="${c.id}" data-title="${esc(c.title)}">重命名</button>` : ''}
+          <button type="button" class="btn" data-action="print-record">打印</button>
           <a class="btn" href="#/consult?member_id=${c.memberId}">新会话</a>
         </div>
       </div>
-      <p class="hint consult-privacy">档案内容会发送给你配置的 AI 服务商处理；AI 解读仅供参考，不能替代执业医师面诊。</p>
+      <p class="hint consult-privacy no-print">档案内容会发送给你配置的 AI 服务商处理；AI 解读仅供参考，不能替代执业医师面诊。</p>
       <div id="consult-messages" class="consult-messages">${c.messages.map(msgHtml).join('') || consultWelcome()}</div>
       <div id="consult-error">${c.error ? `<div class="consult-error card">回答失败：${esc(c.error)} <button type="button" class="link" data-action="consult-retry">重试</button></div>` : ''}</div>
       <div class="consult-chips no-print">${chips.map((t) => `<button type="button" class="chip" data-action="consult-chip" data-text="${esc(t)}">${esc(t)}</button>`).join('')}</div>
@@ -1035,9 +1050,10 @@ function renderConsultChat() {
   scrollConsultBottom(true);
 }
 function chatRowHtml(c) {
+  const kb = c.kind === 'trends' ? '<span class="badge badge-kind">趋势</span> ' : c.kind === 'visit-prep' ? '<span class="badge badge-kind">复诊准备</span> ' : '';
   return `<div class="card chat-row">
     <a class="chat-row-main" href="#/consult/${c.id}">
-      <div class="chat-row-title">${esc(c.title || '未命名会话')}</div>
+      <div class="chat-row-title">${kb}${esc(c.title || '未命名会话')}</div>
       <div class="muted small">${esc(c.member_name)} · ${c.message_count} 条消息 · 更新于 ${esc(c.updated_at)}</div>
     </a>
     <div class="row chat-row-actions">
@@ -1103,20 +1119,26 @@ async function viewConsultNew(qs) {
   if (!memberId) { location.hash = '#/consult'; return; }
   let member = S.members.find((m) => m.id === memberId);
   if (!member) member = await api('/api/members/' + memberId);
+  const kind = CONSULT_KINDS.includes(qs.get('kind')) ? qs.get('kind') : 'chat';
   const wanted = (qs.get('record_ids') || '').split(',').map(Number).filter((n) => Number.isInteger(n) && n > 0);
   let scopeRecords = [];
-  if (wanted.length) {
+  if (wanted.length && kind === 'chat') {
     const recs = await api('/api/records?member_id=' + memberId);
     scopeRecords = recs.filter((r) => wanted.includes(r.id)).map((r) => ({ id: r.id, title: r.title, visit_date: r.visit_date }));
   }
   S.consult = {
-    id: null, memberId, memberName: member.name,
-    recordIds: scopeRecords.map((r) => r.id), title: '',
+    id: null, memberId, memberName: member.name, kind,
+    recordIds: scopeRecords.map((r) => r.id),
+    title: kind === 'trends' ? '健康趋势 · ' + member.name : kind === 'visit-prep' ? '复诊准备 · ' + member.name : '',
     messages: [], streaming: false, error: null, retryQuestion: '', scopeRecords,
   };
   renderConsultChat();
-  if (qs.get('auto') === '1' && S.consult.recordIds.length) {
-    consultSend('请用通俗语言解读这份报告：整体情况如何、异常项分别是什么意思、需要注意什么、下次复诊可以问医生哪些问题。');
+  if (qs.get('auto') === '1') {
+    const autoQ = String(qs.get('auto_q') || '').slice(0, 2000);
+    const q = kind === 'trends' ? '请对这份档案做历年健康趋势分析：关键指标变化、需要关注的加重/新发项、总体概况与复查建议。'
+      : kind === 'visit-prep' ? '请生成复诊准备清单：给医生的病情摘要、近期关键结果、当前治疗、要问医生的问题清单和就诊前注意事项。'
+      : autoQ || (S.consult.recordIds.length ? '请用通俗语言解读这份报告：整体情况如何、异常项分别是什么意思、需要注意什么、下次复诊可以问医生哪些问题。' : '');
+    if (q) consultSend(q);
   }
 }
 async function viewConsultChat(id) {
@@ -1124,6 +1146,7 @@ async function viewConsultChat(id) {
   const data = await api('/api/ai/chats/' + id);
   S.consult = {
     id: data.chat.id, memberId: data.chat.member_id, memberName: data.chat.member_name,
+    kind: CONSULT_KINDS.includes(data.chat.kind) ? data.chat.kind : 'chat',
     recordIds: data.chat.record_ids || [], title: data.chat.title || '',
     messages: data.messages.map((m) => ({ role: m.role, content: m.content })),
     streaming: false, error: null, retryQuestion: '', scopeRecords: data.records || [],
@@ -1178,7 +1201,7 @@ async function consultSend(text) {
   const schedule = () => { if (!renderTimer) renderTimer = setTimeout(flush, 80); };
   let done = false;
   try {
-    const body = c.id ? { chat_id: c.id, question } : { member_id: c.memberId, record_ids: c.recordIds, question };
+    const body = c.id ? { chat_id: c.id, question } : { member_id: c.memberId, record_ids: c.recordIds, kind: c.kind || 'chat', question };
     const res = await fetch('/api/ai/consult', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
     if (!res.ok) {
       let d = {}; try { d = await res.json(); } catch { /* 非 JSON */ }
@@ -1690,7 +1713,7 @@ document.addEventListener('submit', async (e) => {
       const fd = new FormData(f);
       await api('/api/ai/config', {
         method: 'PUT',
-        json: { base: fd.get('base'), model: fd.get('model'), key: fd.get('key') || '' },
+        json: { base: fd.get('base'), model: fd.get('model'), key: fd.get('key') || '', consult_model: fd.get('consult_model') || '' },
       });
       toast('AI 配置已保存');
       viewSettings();

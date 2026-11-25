@@ -336,6 +336,7 @@ input:disabled, select:disabled, textarea:disabled { background: var(--bg); colo
 .chat-row-main:hover { text-decoration: none; }
 .chat-row-title { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-row-actions { flex-shrink: 0; }
+.badge-kind { background: var(--primary-light); color: var(--primary-dark); }
 /* 迷你 Markdown 渲染（AI 回答） */
 .md > *:first-child { margin-top: 0; }
 .md > *:last-child { margin-bottom: 0; }
@@ -389,4 +390,9 @@ input:disabled, select:disabled, textarea:disabled { background: var(--bg); colo
   body { background: #fff; }
   .container { max-width: 100%; padding: 0; }
   .card { box-shadow: none; border: 1px solid #ddd; }
+  /* 问诊页打印：消息区取消滚动限制，完整输出（复诊准备清单可带给医生） */
+  .consult-messages { max-height: none !important; overflow: visible !important; min-height: 0; }
+  .msg-bubble { max-width: 100%; box-shadow: none; }
+  .msg.user .msg-bubble { background: #f0f0f0; color: #000; }
+  .consult-head { border: none; padding: 0 0 10px; }
 }
