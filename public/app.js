@@ -5,7 +5,7 @@ const $modal = document.getElementById('modal-root');
 const $toast = document.getElementById('toast-root');
 
 const CATEGORIES = ['就诊记录', '检查报告', '诊断分析', '用药记录', '手术记录', '疫苗接种', '体检报告', '其他'];
-const S = { authed: false, needSetup: false, memberGate: false, version: '', members: [], previewList: [], previewIdx: 0, confirmCb: null, q: '', aiQueue: [], needRouteRefresh: false };
+const S = { authed: false, needSetup: false, memberGate: false, version: '', members: [], previewList: [], previewIdx: 0, confirmCb: null, q: '', aiQueue: [], needRouteRefresh: false, consult: null, consultCtrl: null };
 
 /* ---------- 工具 ---------- */
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -120,6 +120,7 @@ function layout(content, active) {
       <a href="#/" class="${active === 'home' ? 'active' : ''}">首页</a>
       <a href="#/records" class="${active === 'records' ? 'active' : ''}">病历记录</a>
       <a href="#/files" class="${active === 'files' ? 'active' : ''}">影像资料</a>
+      <a href="#/consult" class="${active === 'consult' ? 'active' : ''}">AI 问诊</a>
       <a href="#/add" class="cta ${active === 'add' ? 'active' : ''}">添加病历或资料</a>
     </nav>
     <form class="searchbar" id="global-search"><input name="q" placeholder="搜索病历 / 诊断 / 医院…" value="${esc(S.q)}"><button class="btn" type="submit">搜索</button></form>
@@ -225,6 +226,7 @@ async function viewMember(id) {
         </div>
       </div>
       <div class="row no-print">
+        <a class="btn" href="#/consult/new?member_id=${mem.id}">AI 问诊</a>
         <button class="btn" data-action="open-member-form" data-id="${mem.id}">编辑资料</button>
       </div>
     </div>
@@ -280,6 +282,7 @@ async function viewRecord(id) {
       <div class="record-head no-print">
         <a href="#/records" class="small">&larr; 返回列表</a>
         <div class="row">
+          <a class="btn primary" href="#/consult/new?member_id=${r.member_id}&record_ids=${r.id}&auto=1">AI 解读</a>
           <button class="btn" data-action="open-record-form" data-id="${r.id}">编辑</button>
           <button class="btn" data-action="manage-attachments" data-record="${r.id}">管理附件</button>
           <button class="btn" data-action="print-record">打印</button>
@@ -825,7 +828,7 @@ async function viewSettings() {
       <button class="btn primary" data-action="open-member-form">+ 添加家庭成员</button>
     </div>
     <div class="card settings-sec">
-      <h3>AI 服务配置（智能导入）</h3>
+      <h3>AI 服务配置（智能导入 / AI 问诊）</h3>
       <form id="ai-config-form">
         <div class="form-grid">
           <label>服务商预设
@@ -852,8 +855,8 @@ async function viewSettings() {
         </div>
       </form>
       <p class="hint" style="margin-top:16px">
-        说明：使用"AI 导入"时，所上传的资料会发送给你在此配置的 AI 服务商做识别，请自行评估隐私风险；
-        如需完全不离内网，可选 Ollama 本地部署的视觉模型（如 qwen2.5vl）。Key 仅保存在本服务器数据库中。
+        说明：使用"AI 导入"时，所上传的资料会发送给你在此配置的 AI 服务商做识别；使用"AI 问诊"时，所选成员的病历档案会发送给该服务商做解读，请自行评估隐私风险；
+        如需完全不离内网，可选 Ollama 本地部署的模型（识别图片需视觉模型如 qwen2.5vl，问诊用文本模型即可）。Key 仅保存在本服务器数据库中。
       </p>
     </div>
     <div class="card settings-sec">
@@ -892,6 +895,367 @@ async function viewSettings() {
       </p>
     </div>
   `, 'settings');
+}
+
+/* ---------- AI 问诊（对话式报告解读） ---------- */
+const CONSULT_CHIPS_REPORT = ['用大白话总结这份报告', '逐项解释异常指标', '整体情况严重吗？', '日常生活要注意什么？', '下次复诊要问医生什么？'];
+const CONSULT_CHIPS_GENERAL = ['总结最近的健康状况', '哪些项目需要复查？', '有需要尽快就医的问题吗？', '下一步建议做什么检查？'];
+
+/* 迷你 Markdown 渲染：先整体 esc 转义，再做受限格式化（AI 输出不可信，杜绝 XSS；不引外部库，符合 CSP） */
+function mdInline(s) {
+  return s
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>')
+    .replace(/~~([^~]+)~~/g, '<del>$1</del>');
+}
+function mdLite(src) {
+  const lines = esc(String(src ?? '')).split(/\r?\n/);
+  const out = [];
+  let i = 0, listType = null, para = [];
+  const closeList = () => { if (listType) { out.push(listType === 'ul' ? '</ul>' : '</ol>'); listType = null; } };
+  const closePara = () => { if (para.length) { out.push('<p>' + para.map(mdInline).join('<br>') + '</p>'); para = []; } };
+  while (i < lines.length) {
+    const line = lines[i];
+    if (/^```/.test(line.trim())) { // 围栏代码块
+      closePara(); closeList();
+      const buf = []; i++;
+      while (i < lines.length && !/^```/.test(lines[i].trim())) { buf.push(lines[i]); i++; }
+      i++;
+      out.push('<pre>' + buf.join('\n') + '</pre>');
+      continue;
+    }
+    if (/^\s*\|.*\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|[\s:|-]+\|\s*$/.test(lines[i + 1])) { // 表格
+      closePara(); closeList();
+      const cells = (l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+      const head = cells(line);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) { rows.push(cells(lines[i])); i++; }
+      out.push('<table><thead><tr>' + head.map((c) => '<th>' + mdInline(c) + '</th>').join('') + '</tr></thead><tbody>'
+        + rows.map((r) => '<tr>' + r.map((c) => '<td>' + mdInline(c) + '</td>').join('') + '</tr>').join('') + '</tbody></table>');
+      continue;
+    }
+    const h = /^(#{1,6})\s+(.*)$/.exec(line);
+    if (h) { closePara(); closeList(); const lv = Math.min(h[1].length + 2, 6); out.push(`<h${lv}>` + mdInline(h[2]) + `</h${lv}>`); i++; continue; }
+    if (/^\s*(---+|\*\*\*+)\s*$/.test(line)) { closePara(); closeList(); out.push('<hr>'); i++; continue; }
+    if (/^\s*&gt;\s?/.test(line)) { // 引用（esc 后 > 变为 &gt;）
+      closePara(); closeList();
+      const buf = [];
+      while (i < lines.length && /^\s*&gt;\s?/.test(lines[i])) { buf.push(lines[i].replace(/^\s*&gt;\s?/, '')); i++; }
+      out.push('<blockquote>' + buf.map(mdInline).join('<br>') + '</blockquote>');
+      continue;
+    }
+    const ul = /^\s*[-*+]\s+(.*)$/.exec(line);
+    const ol = /^\s*\d+[.、)]\s+(.*)$/.exec(line);
+    if (ul || ol) {
+      closePara();
+      const t = ul ? 'ul' : 'ol';
+      if (listType !== t) { closeList(); out.push(t === 'ul' ? '<ul>' : '<ol>'); listType = t; }
+      out.push('<li>' + mdInline((ul || ol)[1]) + '</li>');
+      i++;
+      continue;
+    }
+    if (!line.trim()) { closePara(); closeList(); i++; continue; }
+    closeList();
+    para.push(line);
+    i++;
+  }
+  closePara(); closeList();
+  return out.join('');
+}
+
+function abortConsult() {
+  if (S.consultCtrl) { try { S.consultCtrl.abort(); } catch { /* 忽略 */ } S.consultCtrl = null; }
+}
+function msgHtml(m) {
+  if (m.role === 'user') return `<div class="msg user"><div class="msg-bubble">${nlbr(m.content)}</div></div>`;
+  return `<div class="msg ai"><div class="msg-bubble md">${mdLite(m.content)}${m.pending ? '<span class="md-cursor"></span>' : ''}</div></div>`;
+}
+function consultWelcome() {
+  return `<div class="consult-welcome card">
+    <b>我能帮你做什么？</b>
+    <ul>
+      <li>把检查报告翻译成大白话：术语、箭头 ↑↓、分级分类是什么意思</li>
+      <li>解释异常指标的可能含义与需要关注的程度</li>
+      <li>梳理医生的诊断与处理意见，给出复诊准备建议</li>
+    </ul>
+    <p class="muted small">我不做确诊、不开药；一切医疗决策请以执业医师意见为准。</p>
+  </div>`;
+}
+function scrollConsultBottom(force) {
+  const box = document.getElementById('consult-messages');
+  if (!box) return;
+  const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 90;
+  if (force || nearBottom) box.scrollTop = box.scrollHeight;
+}
+function updateConsultInputState() {
+  const busy = !!(S.consult && S.consult.streaming);
+  const ta = document.getElementById('consult-question');
+  const btn = document.getElementById('consult-send');
+  const stop = document.getElementById('consult-stop');
+  if (ta) ta.disabled = busy;
+  if (btn) { btn.disabled = busy; btn.textContent = busy ? '回答中…' : '发送'; }
+  if (stop) stop.classList.toggle('hidden', !busy);
+}
+function renderConsultChat() {
+  const c = S.consult;
+  if (!c) return;
+  const scopeText = c.scopeRecords.length
+    ? `${esc(c.memberName)} 的 ${c.scopeRecords.length} 条病历全文`
+    : `${esc(c.memberName)} 的近期病历摘要`;
+  const chips = c.recordIds.length ? CONSULT_CHIPS_REPORT : CONSULT_CHIPS_GENERAL;
+  layout(`
+    <div class="consult-wrap">
+      <div class="card consult-head">
+        <div class="consult-head-main">
+          <a href="#/consult" class="small">&larr; 全部会话</a>
+          <h1 id="consult-title">${esc(c.title || '新问诊')}</h1>
+          <div class="muted small">上下文：${scopeText} · <a href="#/member/${c.memberId}">查看档案</a>${c.scopeRecords.length ? ' · ' + c.scopeRecords.map((r) => `<a href="#/record/${r.id}">${esc(r.title)}</a>`).join('、') : ''}</div>
+        </div>
+        <div class="row no-print">
+          ${c.id ? `<button type="button" class="btn" data-action="rename-chat" data-id="${c.id}" data-title="${esc(c.title)}">重命名</button>` : ''}
+          <a class="btn" href="#/consult?member_id=${c.memberId}">新会话</a>
+        </div>
+      </div>
+      <p class="hint consult-privacy">档案内容会发送给你配置的 AI 服务商处理；AI 解读仅供参考，不能替代执业医师面诊。</p>
+      <div id="consult-messages" class="consult-messages">${c.messages.map(msgHtml).join('') || consultWelcome()}</div>
+      <div id="consult-error">${c.error ? `<div class="consult-error card">回答失败：${esc(c.error)} <button type="button" class="link" data-action="consult-retry">重试</button></div>` : ''}</div>
+      <div class="consult-chips no-print">${chips.map((t) => `<button type="button" class="chip" data-action="consult-chip" data-text="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+      <form id="consult-form" class="consult-input card no-print">
+        <textarea name="question" id="consult-question" rows="2" maxlength="2000" placeholder="问点什么：这个指标什么意思？严重吗？要注意什么？（Enter 发送，Shift+Enter 换行）"></textarea>
+        <div class="consult-input-btns">
+          <button type="button" class="btn hidden" id="consult-stop" data-action="consult-stop">停止</button>
+          <button class="btn primary" id="consult-send">发送</button>
+        </div>
+      </form>
+    </div>
+  `, 'consult');
+  updateConsultInputState();
+  scrollConsultBottom(true);
+}
+function chatRowHtml(c) {
+  return `<div class="card chat-row">
+    <a class="chat-row-main" href="#/consult/${c.id}">
+      <div class="chat-row-title">${esc(c.title || '未命名会话')}</div>
+      <div class="muted small">${esc(c.member_name)} · ${c.message_count} 条消息 · 更新于 ${esc(c.updated_at)}</div>
+    </a>
+    <div class="row chat-row-actions">
+      <button type="button" class="link" data-action="rename-chat" data-id="${c.id}" data-title="${esc(c.title)}">重命名</button>
+      <button type="button" class="link danger" data-action="delete-chat" data-id="${c.id}">删除</button>
+    </div>
+  </div>`;
+}
+async function viewConsultHome(qs) {
+  abortConsult();
+  S.consult = null;
+  const [chats, cfg] = await Promise.all([api('/api/ai/chats'), api('/api/ai/config')]);
+  const preset = qs.get('member_id') || '';
+  layout(`
+    <div class="page-head">
+      <h1>AI 问诊</h1>
+      <span class="muted small">基于家庭档案的报告解读与健康答疑 · 仅供参考，不能替代医生面诊</span>
+    </div>
+    ${cfg.configured ? '' : `<div class="card consult-warn">尚未配置 AI 服务：请先到 <a href="#/settings">设置 → AI 服务配置</a> 填写接口地址与模型（问诊只需文本模型）。</div>`}
+    <div class="card settings-sec">
+      <h3>新建问诊</h3>
+      ${S.members.length ? `
+      <form id="consult-new-form">
+        <label>家庭成员<select name="member_id" id="consult-member" required>
+          ${S.members.map((m) => `<option value="${m.id}" ${String(preset) === String(m.id) ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
+        </select></label>
+        <div class="consult-scope-label muted small">勾选要解读的病历（提供报告全文，解读更准确；不勾选则参考最近病历摘要）：</div>
+        <div id="consult-scope"></div>
+        <p class="hint">问诊时档案内容会发送给你配置的 AI 服务商，请自行评估隐私；敏感资料建议使用 Ollama 本地模型。</p>
+        <button class="btn primary" ${cfg.configured ? '' : 'disabled'}>开始问诊</button>
+      </form>` : `<p class="muted">还没有家庭成员，请先到 <a href="#/settings">设置 → 家庭成员管理</a> 添加。</p>`}
+    </div>
+    <h2 class="sec-title">历史会话（${chats.length}）</h2>
+    <div class="card-list">${chats.map(chatRowHtml).join('') || '<div class="empty"><p>暂无会话。上方选择成员开始第一次问诊，或到病历详情页点「AI 解读」。</p></div>'}</div>
+  `, 'consult');
+  await renderConsultScope();
+}
+async function renderConsultScope() {
+  const sel = document.getElementById('consult-member');
+  const box = document.getElementById('consult-scope');
+  if (!sel || !box) return;
+  const mid = sel.value;
+  if (!mid) { box.innerHTML = ''; return; }
+  box.innerHTML = '<p class="muted small">正在加载病历…</p>';
+  try {
+    const recs = await api('/api/records?member_id=' + mid);
+    const cur = document.getElementById('consult-member');
+    if (!cur || cur.value !== mid) return; // 期间已切换成员/页面
+    box.innerHTML = recs.length
+      ? `<div class="consult-scope-list">${recs.map((r) => `
+        <label class="attach-check"><input type="checkbox" name="record_ids" value="${r.id}">
+          ${catBadge(r.category)}<span class="attach-name">${esc(r.title)}</span>
+          <span class="muted small">${esc(r.visit_date || '')}</span>
+        </label>`).join('')}</div>`
+      : '<p class="muted small">该成员暂无病历。可先到「添加病历或资料」上传报告；也可以直接开始，AI 将基于成员档案回答。</p>';
+  } catch (e) {
+    box.innerHTML = `<p class="muted small">病历加载失败：${esc(e.message)}</p>`;
+  }
+}
+async function viewConsultNew(qs) {
+  abortConsult();
+  const memberId = Number(qs.get('member_id')) || (S.members[0] ? S.members[0].id : 0);
+  if (!memberId) { location.hash = '#/consult'; return; }
+  let member = S.members.find((m) => m.id === memberId);
+  if (!member) member = await api('/api/members/' + memberId);
+  const wanted = (qs.get('record_ids') || '').split(',').map(Number).filter((n) => Number.isInteger(n) && n > 0);
+  let scopeRecords = [];
+  if (wanted.length) {
+    const recs = await api('/api/records?member_id=' + memberId);
+    scopeRecords = recs.filter((r) => wanted.includes(r.id)).map((r) => ({ id: r.id, title: r.title, visit_date: r.visit_date }));
+  }
+  S.consult = {
+    id: null, memberId, memberName: member.name,
+    recordIds: scopeRecords.map((r) => r.id), title: '',
+    messages: [], streaming: false, error: null, retryQuestion: '', scopeRecords,
+  };
+  renderConsultChat();
+  if (qs.get('auto') === '1' && S.consult.recordIds.length) {
+    consultSend('请用通俗语言解读这份报告：整体情况如何、异常项分别是什么意思、需要注意什么、下次复诊可以问医生哪些问题。');
+  }
+}
+async function viewConsultChat(id) {
+  abortConsult();
+  const data = await api('/api/ai/chats/' + id);
+  S.consult = {
+    id: data.chat.id, memberId: data.chat.member_id, memberName: data.chat.member_name,
+    recordIds: data.chat.record_ids || [], title: data.chat.title || '',
+    messages: data.messages.map((m) => ({ role: m.role, content: m.content })),
+    streaming: false, error: null, retryQuestion: '', scopeRecords: data.records || [],
+  };
+  renderConsultChat();
+}
+function openChatRename(id, title) {
+  openModal(`<h3>重命名会话</h3>
+  <form id="chat-rename-form" data-id="${id}">
+    <label>会话标题<input name="title" required maxlength="100" value="${esc(title || '')}"></label>
+    <div class="row-end">
+      <button type="button" class="btn" data-action="close-modal">取消</button>
+      <button class="btn primary">保存</button>
+    </div>
+  </form>`);
+}
+/* 发送问题并流式接收回答（SSE）；成功/中断落库由服务端负责，失败可一键重试 */
+async function consultSend(text) {
+  const c = S.consult;
+  if (!c || c.streaming) return;
+  const question = String(text || '').trim().slice(0, 2000);
+  if (!question) return;
+  c.error = null;
+  c.retryQuestion = '';
+  const errBox = document.getElementById('consult-error');
+  if (errBox) errBox.innerHTML = '';
+  c.messages.push({ role: 'user', content: question });
+  const aiMsg = { role: 'assistant', content: '', pending: true };
+  c.messages.push(aiMsg);
+  c.streaming = true;
+  const box = document.getElementById('consult-messages');
+  if (box) {
+    const welcome = box.querySelector('.consult-welcome');
+    if (welcome) welcome.remove();
+    box.insertAdjacentHTML('beforeend', msgHtml({ role: 'user', content: question }));
+    box.insertAdjacentHTML('beforeend', msgHtml(aiMsg));
+  }
+  const aiBubble = box && box.lastElementChild ? box.lastElementChild.querySelector('.msg-bubble') : null;
+  const ta = document.getElementById('consult-question');
+  if (ta) ta.value = '';
+  updateConsultInputState();
+  scrollConsultBottom(true);
+  const ctrl = new AbortController();
+  S.consultCtrl = ctrl;
+  let renderTimer = null;
+  const flush = () => {
+    renderTimer = null;
+    if (S.consult !== c || !aiBubble) return;
+    aiBubble.innerHTML = mdLite(aiMsg.content) + (aiMsg.pending ? '<span class="md-cursor"></span>' : '');
+    scrollConsultBottom();
+  };
+  const schedule = () => { if (!renderTimer) renderTimer = setTimeout(flush, 80); };
+  let done = false;
+  try {
+    const body = c.id ? { chat_id: c.id, question } : { member_id: c.memberId, record_ids: c.recordIds, question };
+    const res = await fetch('/api/ai/consult', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
+    if (!res.ok) {
+      let d = {}; try { d = await res.json(); } catch { /* 非 JSON */ }
+      throw new Error(d.error || '请求失败 ' + res.status);
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    for (;;) {
+      const { done: rd, value } = await reader.read();
+      if (rd) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line.startsWith('data:')) continue;
+        let ev = null; try { ev = JSON.parse(line.slice(5).trim()); } catch { continue; }
+        if (!ev || typeof ev !== 'object') continue;
+        if (ev.type === 'meta') {
+          if (!c.id && ev.chat_id) {
+            c.id = ev.chat_id;
+            c.title = ev.title || c.title;
+            if (S.consult === c) {
+              history.replaceState(null, '', '#/consult/' + ev.chat_id); // 不触发 hashchange，避免打断流式渲染
+              const t = document.getElementById('consult-title');
+              if (t) t.textContent = c.title || '新问诊';
+            }
+          }
+        } else if (ev.type === 'delta') {
+          aiMsg.content += String(ev.text || '');
+          schedule();
+        } else if (ev.type === 'done') {
+          done = true;
+        } else if (ev.type === 'error') {
+          throw new Error(ev.error || 'AI 回答失败');
+        }
+      }
+    }
+    if (!done && !aiMsg.content.trim()) throw new Error('连接中断，未收到回答，请重试');
+    aiMsg.pending = false;
+    if (renderTimer) { clearTimeout(renderTimer); renderTimer = null; }
+    flush();
+  } catch (err) {
+    if (renderTimer) { clearTimeout(renderTimer); renderTimer = null; }
+    if (ctrl.signal.aborted) {
+      // 主动停止或离开页面：服务端会把已生成部分落库，这里保留显示
+      aiMsg.pending = false;
+      if (aiMsg.content.trim()) { if (S.consult === c && aiBubble) aiBubble.innerHTML = mdLite(aiMsg.content); }
+      else {
+        c.messages.pop();
+        if (c.messages.length && c.messages[c.messages.length - 1].role === 'user') c.messages.pop();
+        if (S.consult === c && box) {
+          if (box.lastElementChild && box.lastElementChild.classList.contains('ai')) box.lastElementChild.remove();
+          if (box.lastElementChild && box.lastElementChild.classList.contains('user')) box.lastElementChild.remove();
+        }
+      }
+    } else {
+      // 失败：服务端未落库，撤掉本次提问与回答气泡，显示错误与重试
+      c.messages.pop();
+      if (c.messages.length && c.messages[c.messages.length - 1].role === 'user') c.messages.pop();
+      c.error = err.message || '回答失败';
+      c.retryQuestion = question;
+      if (S.consult === c) {
+        if (box) {
+          if (box.lastElementChild && box.lastElementChild.classList.contains('ai')) box.lastElementChild.remove();
+          if (box.lastElementChild && box.lastElementChild.classList.contains('user')) box.lastElementChild.remove();
+        }
+        const eb = document.getElementById('consult-error');
+        if (eb) eb.innerHTML = `<div class="consult-error card">回答失败：${esc(c.error)} <button type="button" class="link" data-action="consult-retry">重试</button></div>`;
+      }
+    }
+  } finally {
+    c.streaming = false;
+    if (S.consultCtrl === ctrl) S.consultCtrl = null;
+    if (S.consult === c) { updateConsultInputState(); scrollConsultBottom(); }
+  }
 }
 
 /* ---------- 登录 / 初始化 ---------- */
@@ -1290,6 +1654,18 @@ document.addEventListener('click', async (e) => {
           route();
         });
         break;
+      case 'consult-chip': consultSend(el.dataset.text); break;
+      case 'consult-stop': abortConsult(); break;
+      case 'consult-retry': { const c = S.consult; if (c && c.retryQuestion) consultSend(c.retryQuestion); break; }
+      case 'rename-chat': openChatRename(id, el.dataset.title || ''); break;
+      case 'delete-chat':
+        openConfirm('确定删除这个问诊会话？全部问答记录将被一并删除，不可恢复。', async () => {
+          await api('/api/ai/chats/' + id, { method: 'DELETE' });
+          toast('会话已删除');
+          if (S.consult && S.consult.id === id) location.hash = '#/consult';
+          route();
+        });
+        break;
     }
   } catch (err) { toast(err.message || '操作失败', false); }
 });
@@ -1322,6 +1698,26 @@ document.addEventListener('submit', async (e) => {
     'global-search': (f) => { const q = f.q.value.trim(); location.hash = q ? '#/records?q=' + encodeURIComponent(q) : '#/records'; },
     'record-filters': () => {},
     'file-filters': () => {},
+    'consult-form': (f) => { consultSend(f.question.value); },
+    'consult-new-form': (f) => {
+      const fd = new FormData(f);
+      const params = new URLSearchParams();
+      params.set('member_id', fd.get('member_id'));
+      const ids = fd.getAll('record_ids');
+      if (ids.length) params.set('record_ids', ids.join(','));
+      location.hash = '#/consult/new?' + params;
+    },
+    'chat-rename-form': async (f) => {
+      const title = String(new FormData(f).get('title') || '').trim();
+      await api('/api/ai/chats/' + f.dataset.id, { method: 'PUT', json: { title } });
+      toast('已重命名');
+      closeModal();
+      if (S.consult && String(S.consult.id) === f.dataset.id) {
+        S.consult.title = title;
+        const t = document.getElementById('consult-title');
+        if (t) t.textContent = title;
+      } else route();
+    },
   };
   const fn = handlers[form.id];
   if (!fn) return;
@@ -1369,6 +1765,8 @@ document.addEventListener('change', async (e) => {
     }
     return;
   }
+  // 问诊：切换成员后刷新可勾选的病历范围
+  if (e.target && e.target.id === 'consult-member') { renderConsultScope(); return; }
   const el = e.target.closest('[data-autosubmit]');
   if (!el) return;
   const form = el.closest('form');
@@ -1384,6 +1782,14 @@ document.addEventListener('change', async (e) => {
     if (fd.get('member_id')) params.set('member_id', fd.get('member_id'));
     if (fd.get('range')) params.set('range', fd.get('range'));
     location.hash = '#/files' + (params.toString() ? '?' + params : '');
+  }
+});
+
+/* 问诊输入框：Enter 发送，Shift+Enter 换行（兼容中文输入法组合态） */
+document.addEventListener('keydown', (e) => {
+  if (e.target && e.target.id === 'consult-question' && e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
+    e.preventDefault();
+    consultSend(e.target.value);
   }
 });
 
@@ -1403,12 +1809,18 @@ async function route() {
   const qs = new URLSearchParams(queryPart || '');
   const seg = pathPart.split('/').filter(Boolean);
   closeModal();
+  abortConsult(); // 离开问诊页即中断流式回答（服务端保留已生成部分）
   try {
     if (seg.length === 0) await viewDashboard();
     else if (seg[0] === 'member' && seg[1]) await viewMember(Number(seg[1]));
     else if (seg[0] === 'record' && seg[1]) await viewRecord(Number(seg[1]));
     else if (seg[0] === 'records') await viewRecords(qs);
     else if (seg[0] === 'files') await viewFiles(qs);
+    else if (seg[0] === 'consult') {
+      if (seg[1] === 'new') await viewConsultNew(qs);
+      else if (seg[1] && /^\d+$/.test(seg[1])) await viewConsultChat(Number(seg[1]));
+      else await viewConsultHome(qs);
+    }
     else if (seg[0] === 'add' || seg[0] === 'ai-import') await viewAdd();
     else if (seg[0] === 'settings') await viewSettings();
     else await viewDashboard();
