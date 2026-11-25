@@ -9,6 +9,7 @@
 
 ## 提交规范
 - 提交信息风格：`V0.xx：中文摘要`（功能批次升 minor，小修补升 patch），`package.json` 的 version 同步更新；纯文档/记忆类提交可不带版本号。
+- 版本号单一来源：`server.js` 的 `APP_VERSION` 启动时自动读取 `package.json`（页脚展示、启动日志、index.html 静态资源 `?v=` 缓存绕过共用），**只需改 package.json，勿再硬编码版本**。
 
 ## 发布流程：推送到 GitHub 并在服务器拉取
 1. **本地提交推送**：`git add <files>` → `git commit` → `git push origin main`（远程 `git@github.com:wolfpan/medical-archive.git`，公开仓库，**勿提交服务器连接信息、密钥等敏感内容**）。
