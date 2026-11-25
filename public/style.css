@@ -312,7 +312,6 @@ input:disabled, select:disabled, textarea:disabled { background: var(--bg); colo
 .consult-head-main { min-width: 0; flex: 1; }
 .consult-head-main h1 { margin: 4px 0 6px; font-size: 18px; }
 .consult-warn { padding: 14px 18px; border-color: #f4c7c3; background: var(--danger-bg); color: #b42318; font-size: 13px; }
-.consult-privacy { margin: 0; }
 .consult-messages { display: flex; flex-direction: column; gap: 12px; max-height: calc(100vh - 330px); min-height: 220px; overflow-y: auto; padding: 4px 2px; }
 .msg { display: flex; }
 .msg.user { justify-content: flex-end; }

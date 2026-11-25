@@ -945,9 +945,6 @@ async function viewSettings() {
         </div>
         <p class="hint" id="ai-models-result" style="margin:8px 0 0"></p>
       </form>
-      <p class="hint" style="margin-top:16px">
-        说明：AI 导入与 AI 问诊会把资料/病历发送给你配置的 AI 服务商处理，请自行评估隐私风险；敏感资料可选 Ollama 本地模型（数据不出内网）。Key 仅保存在本服务器数据库中。
-      </p>
     </div>
     <div class="card settings-sec">
       <h3>修改管理密码</h3>
@@ -1076,7 +1073,6 @@ function consultWelcome() {
       <li>解释异常指标的可能含义与需要关注的程度</li>
       <li>梳理医生的诊断与处理意见，给出复诊准备建议</li>
     </ul>
-    <p class="muted small">我不做确诊、不开药；一切医疗决策请以执业医师意见为准。</p>
   </div>`;
 }
 function scrollConsultBottom(force) {
@@ -1117,7 +1113,6 @@ function renderConsultChat() {
           <a class="btn" href="#/consult?member_id=${c.memberId}">新会话</a>
         </div>
       </div>
-      <p class="hint consult-privacy no-print">档案内容会发送给你配置的 AI 服务商处理；AI 解读仅供参考，不能替代执业医师面诊。</p>
       <div id="consult-messages" class="consult-messages">${c.messages.map(msgHtml).join('') || consultWelcome()}</div>
       <div id="consult-error">${c.error ? `<div class="consult-error card">回答失败：${esc(c.error)} <button type="button" class="link" data-action="consult-retry">重试</button></div>` : ''}</div>
       <div class="consult-chips no-print">${chips.map((t) => `<button type="button" class="chip" data-action="consult-chip" data-text="${esc(t)}">${esc(t)}</button>`).join('')}</div>
@@ -1154,7 +1149,7 @@ async function viewConsultHome(qs) {
   layout(`
     <div class="page-head">
       <h1>AI 问诊</h1>
-      <span class="muted small">基于家庭档案的报告解读与健康答疑 · 仅供参考，不能替代医生面诊</span>
+      <span class="muted small">基于家庭档案的报告解读与健康答疑</span>
     </div>
     ${cfg.configured ? '' : `<div class="card consult-warn">尚未配置 AI 服务：请先到 <a href="#/settings">设置 → AI 服务配置</a> 填写接口地址与模型（问诊只需文本模型）。</div>`}
     <div class="card settings-sec">
@@ -1166,7 +1161,6 @@ async function viewConsultHome(qs) {
         </select></label>
         <div class="consult-scope-label muted small">勾选要解读的病历（提供报告全文，解读更准确；不勾选则参考最近病历摘要）：</div>
         <div id="consult-scope"></div>
-        <p class="hint">问诊时档案内容会发送给你配置的 AI 服务商，请自行评估隐私；敏感资料建议使用 Ollama 本地模型。</p>
         <button class="btn primary" ${cfg.configured ? '' : 'disabled'}>开始问诊</button>
       </form>` : `<p class="muted">还没有家庭成员，请先到 <a href="#/settings">设置 → 家庭成员管理</a> 添加。</p>`}
     </div>
