@@ -4,6 +4,7 @@
 - 家庭医学存档：私有家庭病历/影像归档网站。零依赖 Node.js（>=23.4，内置 `node:sqlite`）+ 原生前端，无构建步骤、无测试框架。
 - 关键文件：`server.js`（HTTP 服务 + API + 静态文件，每次请求从磁盘读静态文件）；`public/app.js`（单页前端，hash 路由）；`install.sh`（Debian/Ubuntu 一键安装/升级）。
 - 数据在 `data/`（SQLite + uploads 附件），已 gitignore：**勿提交、勿覆盖、勿删除**。
+- 接口状态码约定：**401 仅用于会话失效**（前端 `api()` 见 401 即跳回登录页）；上游 AI 服务商拒绝（Key 无效/无权限）用 502，表单校验错误（如当前密码不正确）用 400，勿混用。
 - 改动后校验：`node --check server.js`、`node --check public/app.js`（本机 node 不在 PATH，可用 DSH  bundled node：`C:\Users\panft\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe`）。
 
 ## 提交规范

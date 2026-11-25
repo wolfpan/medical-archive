@@ -533,7 +533,7 @@ async function aiChat(messages, o = {}) {
   let data = null;
   try { data = JSON.parse(text); } catch { /* 非 JSON 响应 */ }
   if (!res.ok) {
-    if (res.status === 401 || res.status === 403) throw httpError(401, 'AI 服务商拒绝了请求：API Key 无效或无权限（' + res.status + '）');
+    if (res.status === 401 || res.status === 403) throw httpError(502, 'AI 服务商拒绝了请求：API Key 无效或无权限（' + res.status + '）');
     const msg = (data && data.error && data.error.message) || text.slice(0, 200) || ('HTTP ' + res.status);
     throw httpError(502, 'AI 服务返回错误 ' + res.status + '：' + msg);
   }
@@ -876,7 +876,7 @@ async function aiChatStream(messages, o = {}) {
     clearTimeout(idleTimer);
     const text = await res.text().catch(() => '');
     let data = null; try { data = JSON.parse(text); } catch { /* 非 JSON */ }
-    if (res.status === 401 || res.status === 403) throw httpError(401, 'AI 服务商拒绝了请求：API Key 无效或无权限（' + res.status + '）');
+    if (res.status === 401 || res.status === 403) throw httpError(502, 'AI 服务商拒绝了请求：API Key 无效或无权限（' + res.status + '）');
     const msg = (data && data.error && data.error.message) || text.slice(0, 200) || ('HTTP ' + res.status);
     throw httpError(502, 'AI 服务返回错误 ' + res.status + '：' + msg);
   }
@@ -1172,7 +1172,7 @@ async function handleApi(req, res, u) {
   }
   if (p === '/change-password' && method === 'POST') {
     const b = await readJson(req);
-    if (!verifyPassword(String(b.current || ''))) throw httpError(401, '当前密码不正确');
+    if (!verifyPassword(String(b.current || ''))) throw httpError(400, '当前密码不正确');
     const pw = String(b.next || '');
     if (pw.length < 6) throw httpError(400, '新密码至少 6 位');
     setPassword(pw);
@@ -1361,7 +1361,7 @@ async function handleApi(req, res, u) {
       const text = await up.text();
       let data = null; try { data = JSON.parse(text); } catch { /* 非 JSON 响应 */ }
       if (!up.ok) {
-        if (up.status === 401 || up.status === 403) throw httpError(401, 'AI 服务商拒绝了请求：API Key 无效或无权限（' + up.status + '）');
+        if (up.status === 401 || up.status === 403) throw httpError(502, 'AI 服务商拒绝了请求：API Key 无效或无权限（' + up.status + '）');
         const msg = (data && data.error && data.error.message) || text.slice(0, 200) || ('HTTP ' + up.status);
         throw httpError(502, '获取模型列表失败 ' + up.status + '：' + msg);
       }
