@@ -5,3 +5,5 @@ data/
 .env
 .DS_Store
 .mimosa/
+AGENTS.local.md
+CLAUDE.local.md
