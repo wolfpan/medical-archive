@@ -1180,7 +1180,7 @@ async function renderConsultScope() {
   if (!sel || !box) return;
   const mid = sel.value;
   if (!mid) { box.innerHTML = ''; return; }
-  box.innerHTML = '<p class="muted small">正在加载病历…</p>';
+  box.innerHTML = '<p class="muted small"><span class="spin"></span>正在加载病历…</p>';
   try {
     const recs = await api('/api/records?member_id=' + mid);
     const cur = document.getElementById('consult-member');
