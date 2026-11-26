@@ -1081,14 +1081,22 @@ function scrollConsultBottom(force) {
   const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 90;
   if (force || nearBottom) box.scrollTop = box.scrollHeight;
 }
+/* 播放器式圆形按钮：空闲显示发送符号，回答中显示停止符号（内联 SVG，零依赖） */
+const ICON_SEND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>';
+const ICON_STOP = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2.5"/></svg>';
 function updateConsultInputState() {
   const busy = !!(S.consult && S.consult.streaming);
   const ta = document.getElementById('consult-question');
   const btn = document.getElementById('consult-send');
-  const stop = document.getElementById('consult-stop');
   if (ta) ta.disabled = busy;
-  if (btn) { btn.disabled = busy; btn.textContent = busy ? '回答中…' : '发送'; }
-  if (stop) stop.classList.toggle('hidden', !busy);
+  if (btn) {
+    btn.classList.toggle('is-stop', busy);
+    btn.disabled = !busy && !(ta && ta.value.trim()); // 空输入不可发送；回答中始终可点（停止）
+    btn.innerHTML = busy ? ICON_STOP : ICON_SEND;
+    const label = busy ? '停止回答' : '发送';
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+  }
 }
 function renderConsultChat() {
   const c = S.consult;
@@ -1118,10 +1126,7 @@ function renderConsultChat() {
       <div class="consult-chips no-print">${chips.map((t) => `<button type="button" class="chip" data-action="consult-chip" data-text="${esc(t)}">${esc(t)}</button>`).join('')}</div>
       <form id="consult-form" class="consult-input card no-print">
         <textarea name="question" id="consult-question" rows="2" maxlength="2000" placeholder="问点什么：这个指标什么意思？严重吗？要注意什么？（Enter 发送，Shift+Enter 换行）"></textarea>
-        <div class="consult-input-btns">
-          <button type="button" class="btn hidden" id="consult-stop" data-action="consult-stop">停止</button>
-          <button class="btn primary" id="consult-send">发送</button>
-        </div>
+        <button type="button" class="consult-send-btn" id="consult-send" data-action="consult-send" title="发送" aria-label="发送">${ICON_SEND}</button>
       </form>
     </div>
   `, 'consult');
@@ -1758,7 +1763,13 @@ document.addEventListener('click', async (e) => {
         });
         break;
       case 'consult-chip': consultSend(el.dataset.text); break;
-      case 'consult-stop': abortConsult(); break;
+      case 'consult-send': {
+        // 同一按钮双态：回答中点击=停止，空闲点击=发送
+        if (S.consult && S.consult.streaming) { abortConsult(); break; }
+        const ta = document.getElementById('consult-question');
+        if (ta) consultSend(ta.value);
+        break;
+      }
       case 'consult-retry': { const c = S.consult; if (c && c.retryQuestion) consultSend(c.retryQuestion); break; }
       case 'rename-chat': openChatRename(id, el.dataset.title || ''); break;
       case 'delete-chat':
@@ -1902,11 +1913,15 @@ document.addEventListener('change', async (e) => {
   }
 });
 
-/* 模型手动输入框：实时同步到隐藏 input（表单值） */
+/* 模型手动输入框：实时同步到隐藏 input（表单值）；问诊输入框：实时更新发送按钮可用态 */
 document.addEventListener('input', (e) => {
   if (e.target && (e.target.id === 'ai-model-manual' || e.target.id === 'ai-consult-model-manual')) {
     const hid = document.getElementById(e.target.id === 'ai-model-manual' ? 'ai-model' : 'ai-consult-model');
     if (hid) hid.value = e.target.value.trim();
+  }
+  if (e.target && e.target.id === 'consult-question' && !(S.consult && S.consult.streaming)) {
+    const btn = document.getElementById('consult-send');
+    if (btn) btn.disabled = !e.target.value.trim();
   }
 });
 

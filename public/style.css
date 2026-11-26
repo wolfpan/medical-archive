@@ -106,11 +106,11 @@ a.empty-icon:hover { background: var(--primary); color: #fff; text-decoration: n
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   transition: background .15s, border-color .15s, box-shadow .15s;
 }
-.btn:hover { background: var(--bg); border-color: #c3cddb; text-decoration: none; }
+.btn:not(:disabled):hover { background: var(--bg); border-color: #c3cddb; text-decoration: none; }
 .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
-.btn.primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+.btn.primary:not(:disabled):hover { background: var(--primary-dark); border-color: var(--primary-dark); }
 .btn.danger { color: var(--danger); border-color: #f4c7c3; background: var(--card); }
-.btn.danger:hover { background: var(--danger-bg); border-color: #ef9a93; }
+.btn.danger:not(:disabled):hover { background: var(--danger-bg); border-color: #ef9a93; }
 .btn.ghost { border-color: transparent; }
 .btn.block { width: 100%; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
@@ -327,7 +327,20 @@ input:disabled, select:disabled, textarea:disabled { background: var(--bg); colo
 .chip:hover { background: var(--primary-light); border-color: var(--primary); color: var(--primary-dark); }
 .consult-input { display: flex; gap: 10px; padding: 12px 14px; align-items: flex-end; }
 .consult-input textarea { flex: 1; margin-top: 0; }
-.consult-input-btns { display: flex; flex-direction: column; gap: 6px; }
+/* 播放器式圆形发送/停止按钮：直径与全局控件高度一致（--control-h），沉底与输入框对齐 */
+.consult-send-btn {
+  width: var(--control-h); height: var(--control-h); flex-shrink: 0; padding: 0;
+  border: none; border-radius: 50%; cursor: pointer;
+  background: var(--primary); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background .15s, box-shadow .15s;
+}
+.consult-send-btn svg { width: 18px; height: 18px; display: block; }
+.consult-send-btn:not(:disabled):hover { background: var(--primary-dark); }
+.consult-send-btn:focus-visible { outline: 2px solid var(--primary-light); outline-offset: 2px; }
+.consult-send-btn:disabled { background: var(--border-strong); cursor: not-allowed; }
+.consult-send-btn.is-stop { background: var(--danger); } /* 回答中：红色停止键 */
+.consult-send-btn.is-stop:not(:disabled):hover { background: #b42318; }
 .consult-scope-label { margin: 4px 0 8px; }
 .consult-scope-list { max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px; }
 .chat-row { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 14px 18px; flex-wrap: wrap; }
@@ -378,8 +391,8 @@ input:disabled, select:disabled, textarea:disabled { background: var(--bg); colo
   .site-footer { padding: 16px 16px 26px; }
   .consult-messages { max-height: calc(100vh - 300px); }
   .msg-bubble { max-width: 94%; }
-  .consult-input { flex-direction: column; align-items: stretch; }
-  .consult-input-btns { flex-direction: row; justify-content: flex-end; }
+  /* 输入行保持与桌面一致的「输入框 + 圆形按钮」布局，不再折行堆叠 */
+  .consult-input { gap: 8px; padding: 10px 12px; }
   .chat-row-actions { width: 100%; justify-content: flex-end; }
 }
 
